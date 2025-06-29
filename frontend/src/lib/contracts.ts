@@ -1,4 +1,4 @@
-import { Timestamp, collection, query, where, getDocs } from "firebase/firestore";
+import { Timestamp, collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase/client";
 import { Contract, Rating } from "../../types/contracts";
 
@@ -44,6 +44,7 @@ const parseContractData = (doc: any): Contract => {
         amount: data.amount,
         amountUsd: data.amountUsd,
         aiApproved: data.aiApproved ?? false,
+        clientApproved: data.clientApproved ?? false,
         projectId: data.projectId,
         deadline: data.deadline,
         status: data.status,
@@ -90,5 +91,21 @@ export async function getContractsByFreelancerId(freelancerId: string): Promise<
     } catch (error) {
         console.error("Failed to fetch contracts:", error);
         return [];
+    }
+}
+
+export async function getContractById(contractId: string): Promise<Contract> {
+    try {
+        const docRef = doc(db, "contracts", contractId);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+            throw new Error("Contract not found");
+        }
+
+        return parseContractData(docSnap);
+    } catch (error) {
+        console.error("Failed to fetch contract:", error);
+        throw error;
     }
 }

@@ -5,11 +5,12 @@ export interface Contract {
   title: string;
   description: string;
   aiApproved?: boolean;
+  clientApproved?: boolean;
   amount: number; // ETH value
   amountUsd: number; // USD value at contract creation
   usdPerEth?: number; // USD/ETH price at contract creation
   deadline: string; // Store as "YYYY-MM-DD" string to match Firestore schema
-  status: "pending" | "active" | "submitted" | "completed" | "rejected";
+  status: "pending" | "active" | "submitted" | "completed" | "cancelled";
   clientId: string;
   clientName: string;
   clientEmail: string;
@@ -51,12 +52,12 @@ export interface Rating {
   raterType: "client" | "freelancer";
 }
 
-export type FilterStatus = "all" | "pending" | "active" | "submitted" | "completed";
+export type FilterStatus = "all" | "pending" | "active" | "submitted" | "completed" | "cancelled";
 
 export type ContractStatusBadgeType = {
   pending: "waiting for acceptance";
   active: "in progress";
   submitted: "waiting for approval";
   completed: "completed";
-  rejected: "rejected";
+  cancelled: "cancelled";
 };

@@ -4,93 +4,64 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Clock, CheckCircle, XCircle, Calendar, DollarSign, User, FileText } from "lucide-react"
+import { ArrowLeft, Clock, CheckCircle, XCircle, Calendar, DollarSign, User, FileText, AlertTriangle, Check, X } from "lucide-react"
 import { DashboardHeader } from "@/components/DashboardHeader"
 import { useRouter, useParams } from "next/navigation"
 import { useState, useEffect } from "react"
+import { getContractById } from "@/lib/contracts"
+import { toast } from "@/hooks/use-toast"
+import { ethers } from "ethers"
+import EscrowFactoryABI from "@/abi/EscrowFactory.json"
+import { Timestamp } from "firebase/firestore"
+import { auth } from "../../../../../../../firebase/client"
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth"
+import { Contract } from "../../../../../../../types/contracts"
+import { doc, setDoc } from "firebase/firestore"
+import { db } from "../../../../../../../firebase/client"
 
-interface ContractDetails {
-    id: string
-    title: string
-    description: string
-    freelancer: {
-        name: string
-        email: string
-        rating: number
-    }
-    budget: string
-    status: string
-    startDate: string
-    endDate: string
-    milestones: Array<{
-        id: string
-        title: string
-        description: string
-        amount: string
-        status: 'pending' | 'in-progress' | 'completed'
-        dueDate: string
-    }>
-    totalPaid: string
-    remainingAmount: string
-}
+const ESCROW_FACTORY_ADDRESS = "0xDbb7ca1bdd292D1AEb0b125BD69fd1565A0FEe5f";
 
 export default function ClientContractDetailsPage() {
     const router = useRouter()
     const params = useParams()
     const contractId = params.id as string
-    const [contract, setContract] = useState<ContractDetails | null>(null)
+    const [contract, setContract] = useState<Contract | null>(null)
     const [loading, setLoading] = useState(true)
+    const [isProcessing, setIsProcessing] = useState(false)
+    const [clientId, setClientId] = useState<string | null>(null)
 
     useEffect(() => {
-        // Mock data - replace with real API call
-        const mockContract: ContractDetails = {
-            id: contractId,
-            title: "Website Redesign",
-            description: "Complete redesign of the company website with modern UI/UX, responsive design, and improved user experience. The project includes homepage, about page, services page, contact page, and blog section.",
-            freelancer: {
-                name: "John Doe",
-                email: "john.doe@example.com",
-                rating: 4.8
-            },
-            budget: "2.5 ETH",
-            status: "active",
-            startDate: "2024-01-15",
-            endDate: "2024-02-15",
-            milestones: [
-                {
-                    id: "1",
-                    title: "Design Mockups",
-                    description: "Create wireframes and design mockups for all pages",
-                    amount: "0.5 ETH",
-                    status: "completed",
-                    dueDate: "2024-01-20"
-                },
-                {
-                    id: "2",
-                    title: "Frontend Development",
-                    description: "Implement the frontend using React and Next.js",
-                    amount: "1.0 ETH",
-                    status: "in-progress",
-                    dueDate: "2024-02-05"
-                },
-                {
-                    id: "3",
-                    title: "Testing & Deployment",
-                    description: "Final testing and deployment to production",
-                    amount: "1.0 ETH",
-                    status: "pending",
-                    dueDate: "2024-02-15"
-                }
-            ],
-            totalPaid: "0.5 ETH",
-            remainingAmount: "2.0 ETH"
+        const unsubscribe = onAuthStateChanged(auth, (user: FirebaseUser | null) => {
+            if (user) {
+                setClientId(user.uid);
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        if (!contractId) return;
+
+        async function fetchContract() {
+            setLoading(true);
+            try {
+                const fetchedContract = await getContractById(contractId);
+                setContract(fetchedContract);
+            } catch (error) {
+                console.error("Failed to fetch contract:", error);
+                toast({
+                    title: "Error",
+                    description: "Failed to load contract details",
+                    variant: "destructive",
+                });
+            } finally {
+                setLoading(false);
+            }
         }
 
-        setTimeout(() => {
-            setContract(mockContract)
-            setLoading(false)
-        }, 500)
-    }, [contractId])
+        fetchContract();
+    }, [contractId]);
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -100,6 +71,10 @@ export default function ClientContractDetailsPage() {
                 return <CheckCircle className="w-4 h-4 text-green-500" />
             case "pending":
                 return <Clock className="w-4 h-4 text-yellow-500" />
+            case "submitted":
+                return <Check className="w-4 h-4 text-orange-500" />
+            case "cancelled":
+                return <X className="w-4 h-4 text-red-500" />
             default:
                 return <XCircle className="w-4 h-4 text-red-500" />
         }
@@ -109,19 +84,244 @@ export default function ClientContractDetailsPage() {
         const variants = {
             active: "bg-blue-100 text-blue-800",
             completed: "bg-green-100 text-green-800",
-            pending: "bg-yellow-100 text-yellow-800"
+            pending: "bg-yellow-100 text-yellow-800",
+            submitted: "bg-orange-100 text-orange-800",
+            cancelled: "bg-red-100 text-red-800"
         }
         return variants[status as keyof typeof variants] || "bg-gray-100 text-gray-800"
     }
 
-    const getMilestoneStatusBadge = (status: string) => {
-        const variants = {
-            'in-progress': "bg-blue-100 text-blue-800",
-            completed: "bg-green-100 text-green-800",
-            pending: "bg-yellow-100 text-yellow-800"
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+        }).format(amount);
+    };
+
+    const formatDate = (dateInput: string | Date | Timestamp | undefined) => {
+        if (!dateInput) return "N/A";
+        
+        try {
+            let date: Date;
+            if (typeof dateInput === "string") {
+                date = new Date(dateInput);
+            } else if (dateInput instanceof Timestamp) {
+                date = dateInput.toDate();
+            } else {
+                date = dateInput;
+            }
+            
+            return date.toLocaleDateString();
+        } catch {
+            return "Invalid date";
         }
-        return variants[status as keyof typeof variants] || "bg-gray-100 text-gray-800"
-    }
+    };
+
+    const handleApproveWork = async () => {
+        if (!contract?.projectId) {
+            toast({
+                title: "Error",
+                description: "Project ID not found",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsProcessing(true);
+        try {
+            if (!window.ethereum) {
+                throw new Error("MetaMask not found. Please install MetaMask.");
+            }
+
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const escrowFactory = new ethers.Contract(
+                ESCROW_FACTORY_ADDRESS,
+                EscrowFactoryABI.abi,
+                signer
+            );
+
+            const tx = await escrowFactory.approveByClient(contract.projectId);
+            const receipt = await tx.wait();
+
+            // Only update Firestore after confirming blockchain transaction success
+            if (receipt.status === 1) {
+                const contractRef = doc(db, "contracts", contract.id);
+                await setDoc(
+                    contractRef,
+                    {
+                        clientApproved: true,
+                        blockchainHash: receipt.transactionHash,
+                    },
+                    { merge: true }
+                );
+
+                toast({
+                    title: "Work Approved",
+                    description: "The work has been approved successfully.",
+                });
+
+                // Refresh contract data
+                const updatedContract = await getContractById(contractId);
+                setContract(updatedContract);
+            } else {
+                throw new Error("Transaction failed on blockchain");
+            }
+
+        } catch (error: any) {
+            console.error("Error approving work:", error);
+            toast({
+                title: "Error",
+                description: error?.message || "Failed to approve work",
+                variant: "destructive",
+            });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleReleasePayment = async () => {
+        if (!contract?.projectId) {
+            toast({
+                title: "Error",
+                description: "Project ID not found",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsProcessing(true);
+        try {
+            if (!window.ethereum) {
+                throw new Error("MetaMask not found. Please install MetaMask.");
+            }
+
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const escrowFactory = new ethers.Contract(
+                ESCROW_FACTORY_ADDRESS,
+                EscrowFactoryABI.abi,
+                signer
+            );
+
+            // First approve if not already approved
+            try {
+                const approveTx = await escrowFactory.approveByClient(contract.projectId);
+                await approveTx.wait();
+            } catch (err: any) {
+                // If already approved, ignore error
+                if (!err?.message?.includes("already approved")) {
+                    throw err;
+                }
+            }
+
+            // Then release funds
+            const releaseTx = await escrowFactory.releaseFunds(contract.projectId);
+            const receipt = await releaseTx.wait();
+
+            // Only update Firestore after confirming blockchain transaction success
+            if (receipt.status === 1) {
+                const contractRef = doc(db, "contracts", contract.id);
+                await setDoc(
+                    contractRef,
+                    {
+                        status: "completed",
+                        completedAt: Timestamp.fromDate(new Date()),
+                        blockchainHash: receipt.transactionHash,
+                    },
+                    { merge: true }
+                );
+
+                toast({
+                    title: "Payment Released",
+                    description: "Payment has been successfully released to the freelancer.",
+                });
+
+                // Refresh contract data
+                const updatedContract = await getContractById(contractId);
+                setContract(updatedContract);
+            } else {
+                throw new Error("Transaction failed on blockchain");
+            }
+
+        } catch (error: any) {
+            console.error("Error releasing payment:", error);
+            toast({
+                title: "Error",
+                description: error?.message || "Failed to release payment",
+                variant: "destructive",
+            });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleCancelContract = async () => {
+        if (!contract?.projectId) {
+            toast({
+                title: "Error",
+                description: "Project ID not found",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsProcessing(true);
+        try {
+            if (!window.ethereum) {
+                throw new Error("MetaMask not found. Please install MetaMask.");
+            }
+
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const escrowFactory = new ethers.Contract(
+                ESCROW_FACTORY_ADDRESS,
+                EscrowFactoryABI.abi,
+                signer
+            );
+
+            const tx = await escrowFactory.cancelProject(contract.projectId);
+            const receipt = await tx.wait();
+
+            // Only update Firestore after confirming blockchain transaction success
+            if (receipt.status === 1) {
+                const contractRef = doc(db, "contracts", contract.id);
+                await setDoc(
+                    contractRef,
+                    {
+                        status: "cancelled",
+                        blockchainHash: receipt.transactionHash,
+                    },
+                    { merge: true }
+                );
+
+                toast({
+                    title: "Contract Cancelled",
+                    description: "The contract has been cancelled successfully.",
+                });
+
+                // Refresh contract data
+                const updatedContract = await getContractById(contractId);
+                setContract(updatedContract);
+            } else {
+                throw new Error("Transaction failed on blockchain");
+            }
+
+        } catch (error: any) {
+            console.error("Error cancelling contract:", error);
+            toast({
+                title: "Error",
+                description: error?.message || "Failed to cancel contract",
+                variant: "destructive",
+            });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const canApproveWork = contract?.status === "submitted" && contract?.aiApproved;
+    const canReleasePayment = contract?.status === "submitted";
+    const canCancelContract = ["pending", "active"].includes(contract?.status || "");
 
     if (loading) {
         return (
@@ -170,9 +370,46 @@ export default function ClientContractDetailsPage() {
                                 <Badge className={getStatusBadge(contract.status)}>
                                     {contract.status}
                                 </Badge>
+                                {contract.status === "submitted" && (
+                                    <Badge 
+                                        className={contract.aiApproved 
+                                            ? "bg-green-100 text-green-800" 
+                                            : "bg-yellow-100 text-yellow-800"
+                                        }
+                                    >
+                                        {contract.aiApproved ? "AI Approved" : "AI Pending"}
+                                    </Badge>
+                                )}
                             </div>
                         </div>
-                        <Button variant="outline">Contact Freelancer</Button>
+                        <div className="flex gap-2">
+                            {canApproveWork && (
+                                <Button 
+                                    onClick={handleApproveWork}
+                                    disabled={isProcessing}
+                                    variant="outline"
+                                >
+                                    {isProcessing ? "Processing..." : "Approve Work"}
+                                </Button>
+                            )}
+                            {canReleasePayment && (
+                                <Button 
+                                    onClick={handleReleasePayment}
+                                    disabled={isProcessing}
+                                >
+                                    {isProcessing ? "Processing..." : "Release Payment"}
+                                </Button>
+                            )}
+                            {canCancelContract && (
+                                <Button 
+                                    onClick={handleCancelContract}
+                                    disabled={isProcessing}
+                                    variant="destructive"
+                                >
+                                    {isProcessing ? "Processing..." : "Cancel Contract"}
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -190,31 +427,47 @@ export default function ClientContractDetailsPage() {
                             </CardContent>
                         </Card>
 
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Milestones</CardTitle>
-                                <CardDescription>Project milestones and payment schedule</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-4">
-                                    {contract.milestones.map((milestone) => (
-                                        <div key={milestone.id} className="border rounded-lg p-4">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <h4 className="font-semibold">{milestone.title}</h4>
-                                                <Badge className={getMilestoneStatusBadge(milestone.status)}>
-                                                    {milestone.status}
-                                                </Badge>
-                                            </div>
-                                            <p className="text-sm text-muted-foreground mb-2">{milestone.description}</p>
-                                            <div className="flex items-center justify-between text-sm">
-                                                <span className="font-medium">{milestone.amount}</span>
-                                                <span className="text-muted-foreground">Due: {milestone.dueDate}</span>
-                                            </div>
+                        {contract.status === "submitted" && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <AlertTriangle className="w-5 h-5 text-orange-500" />
+                                        Work Submission
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Review the submitted work and take action
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-medium">AI Approval Status:</span>
+                                            <Badge 
+                                                className={contract.aiApproved 
+                                                    ? "bg-green-100 text-green-800" 
+                                                    : "bg-yellow-100 text-yellow-800"
+                                                }
+                                            >
+                                                {contract.aiApproved ? "Approved" : "Pending"}
+                                            </Badge>
                                         </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-medium">Submitted Date:</span>
+                                            <span className="text-sm text-muted-foreground">
+                                                {contract.submittedAt ? formatDate(contract.submittedAt) : "N/A"}
+                                            </span>
+                                        </div>
+                                        {!contract.aiApproved && (
+                                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                                <p className="text-sm text-yellow-800">
+                                                    The work is currently being reviewed by AI. You can approve and release payment once AI approval is complete.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
 
                     <div className="space-y-6">
@@ -228,12 +481,8 @@ export default function ClientContractDetailsPage() {
                                         <User className="w-6 h-6 text-gray-600" />
                                     </div>
                                     <div>
-                                        <h4 className="font-semibold">{contract.freelancer.name}</h4>
-                                        <p className="text-sm text-muted-foreground">{contract.freelancer.email}</p>
-                                        <div className="flex items-center gap-1 mt-1">
-                                            <span className="text-sm">★</span>
-                                            <span className="text-sm font-medium">{contract.freelancer.rating}</span>
-                                        </div>
+                                        <h4 className="font-semibold">{contract.freelancerName}</h4>
+                                        <p className="text-sm text-muted-foreground">{contract.freelancerEmail}</p>
                                     </div>
                                 </div>
                                 <Button className="w-full" variant="outline">
@@ -250,17 +499,20 @@ export default function ClientContractDetailsPage() {
                                 <div className="space-y-3">
                                     <div className="flex justify-between">
                                         <span>Total Budget:</span>
-                                        <span className="font-medium">{contract.budget}</span>
+                                        <span className="font-medium">{formatCurrency(contract.amountUsd)}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span>Total Paid:</span>
-                                        <span className="font-medium text-green-600">{contract.totalPaid}</span>
+                                        <span>ETH Amount:</span>
+                                        <span className="font-medium">{contract.amount} ETH</span>
                                     </div>
-                                    <Separator />
-                                    <div className="flex justify-between font-semibold">
-                                        <span>Remaining:</span>
-                                        <span>{contract.remainingAmount}</span>
-                                    </div>
+                                    {contract.blockchainHash && (
+                                        <div className="flex justify-between">
+                                            <span>Transaction Hash:</span>
+                                            <span className="font-mono text-xs text-muted-foreground">
+                                                {contract.blockchainHash.slice(0, 10)}...
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -274,15 +526,42 @@ export default function ClientContractDetailsPage() {
                                     <div className="flex items-center gap-3">
                                         <Calendar className="w-4 h-4 text-muted-foreground" />
                                         <div>
-                                            <p className="text-sm font-medium">Start Date</p>
-                                            <p className="text-sm text-muted-foreground">{contract.startDate}</p>
+                                            <p className="text-sm font-medium">Created</p>
+                                            <p className="text-sm text-muted-foreground">{formatDate(contract.createdAt)}</p>
                                         </div>
                                     </div>
+                                    {contract.acceptedAt && (
+                                        <div className="flex items-center gap-3">
+                                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                                            <div>
+                                                <p className="text-sm font-medium">Accepted</p>
+                                                <p className="text-sm text-muted-foreground">{formatDate(contract.acceptedAt)}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {contract.submittedAt && (
+                                        <div className="flex items-center gap-3">
+                                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                                            <div>
+                                                <p className="text-sm font-medium">Submitted</p>
+                                                <p className="text-sm text-muted-foreground">{formatDate(contract.submittedAt)}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {contract.completedAt && (
+                                        <div className="flex items-center gap-3">
+                                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                                            <div>
+                                                <p className="text-sm font-medium">Completed</p>
+                                                <p className="text-sm text-muted-foreground">{formatDate(contract.completedAt)}</p>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="flex items-center gap-3">
                                         <Calendar className="w-4 h-4 text-muted-foreground" />
                                         <div>
-                                            <p className="text-sm font-medium">End Date</p>
-                                            <p className="text-sm text-muted-foreground">{contract.endDate}</p>
+                                            <p className="text-sm font-medium">Deadline</p>
+                                            <p className="text-sm text-muted-foreground">{formatDate(contract.deadline)}</p>
                                         </div>
                                     </div>
                                 </div>
