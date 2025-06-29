@@ -5,67 +5,63 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { FileCheck2, Clock, CheckCircle, DollarSign, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react"
 import { DashboardHeader } from "@/components/DashboardHeader"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { getContractsByFreelancerId } from "@/lib/contracts"
+import { auth } from "../../../../../../firebase/client"
+import { onAuthStateChanged, User } from "firebase/auth"
+import { Contract } from "../../../../../../types/contracts"
 
-type SortField = 'title' | 'client' | 'budget' | 'earnings' | 'startDate' | 'endDate'
+type SortField = 'title' | 'clientName' | 'amount' | 'deadline' | 'createdAt'
 type SortDirection = 'asc' | 'desc'
-
-interface Contract {
-    id: string
-    title: string
-    client: string
-    budget: string
-    status: string
-    startDate: string
-    endDate: string
-    earnings: string
-}
 
 export default function FreelancerContractsPage() {
     const router = useRouter()
     const [searchTerm, setSearchTerm] = useState("")
-    const [statusFilter, setStatusFilter] = useState<string[]>(["active", "completed", "pending"])
-    const [sortField, setSortField] = useState<SortField>('startDate')
+    const [statusFilter, setStatusFilter] = useState<string[]>(["active", "completed", "pending", "submitted"])
+    const [sortField, setSortField] = useState<SortField>('createdAt')
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+    const [contracts, setContracts] = useState<Contract[]>([])
+    const [loading, setLoading] = useState(true)
+    const [freelancerId, setFreelancerId] = useState<string | null>(null)
+    const [userName, setUserName] = useState<string>("")
 
-    // Mock data - replace with real data from your backend
-    const contracts: Contract[] = [
-        {
-            id: "1",
-            title: "Website Redesign",
-            client: "TechCorp Inc.",
-            budget: "2.5 ETH",
-            status: "active",
-            startDate: "2024-01-15",
-            endDate: "2024-02-15",
-            earnings: "1.875 ETH"
-        },
-        {
-            id: "2",
-            title: "Mobile App Development",
-            client: "StartupXYZ",
-            budget: "5.0 ETH",
-            status: "completed",
-            startDate: "2024-01-01",
-            endDate: "2024-01-30",
-            earnings: "5.0 ETH"
-        },
-        {
-            id: "3",
-            title: "Logo Design",
-            client: "Design Studio",
-            budget: "1.0 ETH",
-            status: "pending",
-            startDate: "2024-02-01",
-            endDate: "2024-02-10",
-            earnings: "0 ETH"
+    // Fetch authenticated user info
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+            if (user) {
+                setFreelancerId(user.uid)
+                setUserName(user.displayName || user.email || "Freelancer")
+            } else {
+                setFreelancerId(null)
+            }
+        })
+
+        return () => unsubscribe()
+    }, [])
+
+    // Fetch contracts once freelancerId is available
+    useEffect(() => {
+        if (!freelancerId) return
+
+        async function fetchContracts() {
+            setLoading(true)
+            try {
+                if (!freelancerId) throw new Error("Freelancer ID is null")
+                const fetched: Contract[] = await getContractsByFreelancerId(freelancerId)
+                setContracts(fetched)
+            } catch (err) {
+                console.error("Failed to fetch contracts:", err)
+            } finally {
+                setLoading(false)
+            }
         }
-    ]
+
+        fetchContracts()
+    }, [freelancerId])
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -75,6 +71,8 @@ export default function FreelancerContractsPage() {
                 return <CheckCircle className="w-4 h-4 text-green-500" />
             case "pending":
                 return <Clock className="w-4 h-4 text-yellow-500" />
+            case "submitted":
+                return <FileCheck2 className="w-4 h-4 text-purple-500" />
             default:
                 return <Clock className="w-4 h-4 text-gray-500" />
         }
@@ -84,7 +82,9 @@ export default function FreelancerContractsPage() {
         const variants = {
             active: "bg-blue-100 text-blue-800",
             completed: "bg-green-100 text-green-800",
-            pending: "bg-yellow-100 text-yellow-800"
+            pending: "bg-yellow-100 text-yellow-800",
+            submitted: "bg-purple-100 text-purple-800",
+            rejected: "bg-red-100 text-red-800"
         }
         return variants[status as keyof typeof variants] || "bg-gray-100 text-gray-800"
     }
@@ -114,18 +114,28 @@ export default function FreelancerContractsPage() {
     }
 
     const selectAllStatuses = () => {
-        setStatusFilter(["active", "completed", "pending"])
+        setStatusFilter(["active", "completed", "pending", "submitted", "rejected"])
     }
 
     const clearAllStatuses = () => {
         setStatusFilter([])
     }
 
+    const formatDate = (date: Date | any) => {
+        if (!date) return "N/A"
+        const dateObj = date instanceof Date ? date : date.toDate()
+        return dateObj.toLocaleDateString()
+    }
+
+    const formatAmount = (amount: number) => {
+        return `${amount} ETH`
+    }
+
     const filteredAndSortedContracts = useMemo(() => {
         let filtered = contracts.filter(contract => {
             const matchesSearch = searchTerm === "" || 
                 contract.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                contract.client.toLowerCase().includes(searchTerm.toLowerCase())
+                contract.clientName.toLowerCase().includes(searchTerm.toLowerCase())
             
             const matchesStatus = statusFilter.includes(contract.status)
             
@@ -133,18 +143,35 @@ export default function FreelancerContractsPage() {
         })
 
         filtered.sort((a, b) => {
-            let aValue = a[sortField]
-            let bValue = b[sortField]
+            let aValue: any
+            let bValue: any
             
-            if (sortField === 'budget' || sortField === 'earnings') {
-                const aNum = parseFloat((aValue as string).replace(' ETH', ''));
-                const bNum = parseFloat((bValue as string).replace(' ETH', ''));
-                if (aNum < bNum) return sortDirection === 'asc' ? -1 : 1;
-                if (aNum > bNum) return sortDirection === 'asc' ? 1 : -1;
-                return 0;
+            switch (sortField) {
+                case 'title':
+                    aValue = a.title
+                    bValue = b.title
+                    break
+                case 'clientName':
+                    aValue = a.clientName
+                    bValue = b.clientName
+                    break
+                case 'amount':
+                    aValue = a.amount
+                    bValue = b.amount
+                    break
+                case 'deadline':
+                    aValue = new Date(a.deadline)
+                    bValue = new Date(b.deadline)
+                    break
+                case 'createdAt':
+                    aValue = a.createdAt instanceof Date ? a.createdAt : a.createdAt.toDate()
+                    bValue = b.createdAt instanceof Date ? b.createdAt : b.createdAt.toDate()
+                    break
+                default:
+                    return 0
             }
 
-            if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+            if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
             if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
             return 0
         })
@@ -158,14 +185,39 @@ export default function FreelancerContractsPage() {
 
     const getFilterButtonText = () => {
         if (statusFilter.length === 0) return "No Status"
-        if (statusFilter.length === 3) return "All Status"
+        if (statusFilter.length === 5) return "All Status"
         if (statusFilter.length === 1) return statusFilter[0]
         return `${statusFilter.length} Status`
     }
 
+    // Calculate statistics
+    const stats = useMemo(() => {
+        const active = contracts.filter(c => c.status === "active").length
+        const completed = contracts.filter(c => c.status === "completed").length
+        const pending = contracts.filter(c => c.status === "pending").length
+        const totalEarnings = contracts
+            .filter(c => c.status === "completed")
+            .reduce((sum, c) => sum + c.amount, 0)
+        
+        return { active, completed, pending, totalEarnings }
+    }, [contracts])
+
+    if (loading) {
+        return (
+            <div>
+                <DashboardHeader userType="freelancer" userName={userName} />
+                <div className="container mx-auto p-6">
+                    <div className="flex items-center justify-center h-64">
+                        <p>Loading contracts...</p>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div>
-            <DashboardHeader userType="freelancer" userName="Freelancer" />
+            <DashboardHeader userType="freelancer" userName={userName} />
             <div className="container mx-auto p-6">
                 <div className="mb-6">
                     <h1 className="text-3xl font-bold">My Contracts</h1>
@@ -179,7 +231,7 @@ export default function FreelancerContractsPage() {
                             <FileCheck2 className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">2</div>
+                            <div className="text-2xl font-bold">{stats.active}</div>
                             <p className="text-xs text-muted-foreground">Currently working</p>
                         </CardContent>
                     </Card>
@@ -189,7 +241,7 @@ export default function FreelancerContractsPage() {
                             <CheckCircle className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">1</div>
+                            <div className="text-2xl font-bold">{stats.completed}</div>
                             <p className="text-xs text-muted-foreground">Successfully finished</p>
                         </CardContent>
                     </Card>
@@ -199,7 +251,7 @@ export default function FreelancerContractsPage() {
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">6.875 ETH</div>
+                            <div className="text-2xl font-bold">{stats.totalEarnings.toFixed(2)} ETH</div>
                             <p className="text-xs text-muted-foreground">From all contracts</p>
                         </CardContent>
                     </Card>
@@ -209,7 +261,7 @@ export default function FreelancerContractsPage() {
                             <Clock className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">1</div>
+                            <div className="text-2xl font-bold">{stats.pending}</div>
                             <p className="text-xs text-muted-foreground">Awaiting start</p>
                         </CardContent>
                     </Card>
@@ -238,7 +290,7 @@ export default function FreelancerContractsPage() {
                                     <Button variant="outline" className="flex items-center gap-2">
                                         <Filter className="w-4 h-4" />
                                         {getFilterButtonText()}
-                                        {statusFilter.length > 0 && statusFilter.length < 3 && (
+                                        {statusFilter.length > 0 && statusFilter.length < 5 && (
                                             <Badge variant="secondary" className="ml-1">
                                                 {statusFilter.length}
                                             </Badge>
@@ -254,10 +306,22 @@ export default function FreelancerContractsPage() {
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuCheckboxItem 
+                                        checked={statusFilter.includes("pending")}
+                                        onCheckedChange={(checked) => handleStatusFilterChange("pending", checked)}
+                                    >
+                                        Pending
+                                    </DropdownMenuCheckboxItem>
+                                    <DropdownMenuCheckboxItem 
                                         checked={statusFilter.includes("active")}
                                         onCheckedChange={(checked) => handleStatusFilterChange("active", checked)}
                                     >
                                         Active
+                                    </DropdownMenuCheckboxItem>
+                                    <DropdownMenuCheckboxItem 
+                                        checked={statusFilter.includes("submitted")}
+                                        onCheckedChange={(checked) => handleStatusFilterChange("submitted", checked)}
+                                    >
+                                        Submitted
                                     </DropdownMenuCheckboxItem>
                                     <DropdownMenuCheckboxItem 
                                         checked={statusFilter.includes("completed")}
@@ -266,106 +330,102 @@ export default function FreelancerContractsPage() {
                                         Completed
                                     </DropdownMenuCheckboxItem>
                                     <DropdownMenuCheckboxItem 
-                                        checked={statusFilter.includes("pending")}
-                                        onCheckedChange={(checked) => handleStatusFilterChange("pending", checked)}
+                                        checked={statusFilter.includes("rejected")}
+                                        onCheckedChange={(checked) => handleStatusFilterChange("rejected", checked)}
                                     >
-                                        Pending
+                                        Rejected
                                     </DropdownMenuCheckboxItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
 
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>
-                                        <Button 
-                                            variant="ghost" 
-                                            onClick={() => handleSort('title')}
-                                            className="h-auto p-0 font-semibold"
-                                        >
-                                            Project {getSortIcon('title')}
-                                        </Button>
-                                    </TableHead>
-                                    <TableHead>
-                                        <Button 
-                                            variant="ghost" 
-                                            onClick={() => handleSort('client')}
-                                            className="h-auto p-0 font-semibold"
-                                        >
-                                            Client {getSortIcon('client')}
-                                        </Button>
-                                    </TableHead>
-                                    <TableHead>
-                                        <Button 
-                                            variant="ghost" 
-                                            onClick={() => handleSort('budget')}
-                                            className="h-auto p-0 font-semibold"
-                                        >
-                                            Budget {getSortIcon('budget')}
-                                        </Button>
-                                    </TableHead>
-                                    <TableHead>
-                                        <Button 
-                                            variant="ghost" 
-                                            onClick={() => handleSort('earnings')}
-                                            className="h-auto p-0 font-semibold"
-                                        >
-                                            Earnings {getSortIcon('earnings')}
-                                        </Button>
-                                    </TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>
-                                        <Button 
-                                            variant="ghost" 
-                                            onClick={() => handleSort('startDate')}
-                                            className="h-auto p-0 font-semibold"
-                                        >
-                                            Start Date {getSortIcon('startDate')}
-                                        </Button>
-                                    </TableHead>
-                                    <TableHead>
-                                        <Button 
-                                            variant="ghost" 
-                                            onClick={() => handleSort('endDate')}
-                                            className="h-auto p-0 font-semibold"
-                                        >
-                                            End Date {getSortIcon('endDate')}
-                                        </Button>
-                                    </TableHead>
-                                    <TableHead>Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredAndSortedContracts.map((contract) => (
-                                    <TableRow key={contract.id}>
-                                        <TableCell className="font-medium">{contract.title}</TableCell>
-                                        <TableCell>{contract.client}</TableCell>
-                                        <TableCell>{contract.budget}</TableCell>
-                                        <TableCell className="font-medium">{contract.earnings}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                {getStatusIcon(contract.status)}
-                                                <Badge className={getStatusBadge(contract.status)}>
-                                                    {contract.status}
-                                                </Badge>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>{contract.startDate}</TableCell>
-                                        <TableCell>{contract.endDate}</TableCell>
-                                        <TableCell>
+                        {filteredAndSortedContracts.length === 0 ? (
+                            <div className="text-center py-8">
+                                <p className="text-muted-foreground">No contracts found</p>
+                            </div>
+                        ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>
                                             <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                onClick={() => handleViewDetails(contract.id)}
+                                                variant="ghost" 
+                                                onClick={() => handleSort('title')}
+                                                className="h-auto p-0 font-semibold"
                                             >
-                                                View Details
+                                                Project {getSortIcon('title')}
                                             </Button>
-                                        </TableCell>
+                                        </TableHead>
+                                        <TableHead>
+                                            <Button 
+                                                variant="ghost" 
+                                                onClick={() => handleSort('clientName')}
+                                                className="h-auto p-0 font-semibold"
+                                            >
+                                                Client {getSortIcon('clientName')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                            <Button 
+                                                variant="ghost" 
+                                                onClick={() => handleSort('amount')}
+                                                className="h-auto p-0 font-semibold"
+                                            >
+                                                Budget {getSortIcon('amount')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead>
+                                            <Button 
+                                                variant="ghost" 
+                                                onClick={() => handleSort('deadline')}
+                                                className="h-auto p-0 font-semibold"
+                                            >
+                                                Deadline {getSortIcon('deadline')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                            <Button 
+                                                variant="ghost" 
+                                                onClick={() => handleSort('createdAt')}
+                                                className="h-auto p-0 font-semibold"
+                                            >
+                                                Created {getSortIcon('createdAt')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>Actions</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredAndSortedContracts.map((contract) => (
+                                        <TableRow key={contract.id}>
+                                            <TableCell className="font-medium">{contract.title}</TableCell>
+                                            <TableCell>{contract.clientName}</TableCell>
+                                            <TableCell>{formatAmount(contract.amount)}</TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    {getStatusIcon(contract.status)}
+                                                    <Badge className={getStatusBadge(contract.status)}>
+                                                        {contract.status}
+                                                    </Badge>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>{formatDate(new Date(contract.deadline))}</TableCell>
+                                            <TableCell>{formatDate(contract.createdAt)}</TableCell>
+                                            <TableCell>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm"
+                                                    onClick={() => handleViewDetails(contract.id)}
+                                                >
+                                                    View Details
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
                     </CardContent>
                 </Card>
             </div>
