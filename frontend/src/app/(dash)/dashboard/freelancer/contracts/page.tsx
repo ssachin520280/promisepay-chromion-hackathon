@@ -21,7 +21,7 @@ type SortDirection = 'asc' | 'desc'
 export default function FreelancerContractsPage() {
     const router = useRouter()
     const [searchTerm, setSearchTerm] = useState("")
-    const [statusFilter, setStatusFilter] = useState<string[]>(["active", "completed", "pending", "submitted"])
+    const [statusFilter, setStatusFilter] = useState<string[]>([])
     const [sortField, setSortField] = useState<SortField>('createdAt')
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
     const [contracts, setContracts] = useState<Contract[]>([])
@@ -53,6 +53,10 @@ export default function FreelancerContractsPage() {
                 if (!freelancerId) throw new Error("Freelancer ID is null")
                 const fetched: Contract[] = await getContractsByFreelancerId(freelancerId)
                 setContracts(fetched)
+                
+                // Set initial status filter to include all available statuses
+                const availableStatuses = [...new Set(fetched.map(contract => contract.status))]
+                setStatusFilter(availableStatuses)
             } catch (err) {
                 console.error("Failed to fetch contracts:", err)
             } finally {
@@ -114,7 +118,8 @@ export default function FreelancerContractsPage() {
     }
 
     const selectAllStatuses = () => {
-        setStatusFilter(["active", "completed", "pending", "submitted", "rejected"])
+        const availableStatuses = [...new Set(contracts.map(contract => contract.status))]
+        setStatusFilter(availableStatuses)
     }
 
     const clearAllStatuses = () => {
@@ -184,8 +189,9 @@ export default function FreelancerContractsPage() {
     }
 
     const getFilterButtonText = () => {
+        const availableStatuses = [...new Set(contracts.map(contract => contract.status))]
         if (statusFilter.length === 0) return "No Status"
-        if (statusFilter.length === 5) return "All Status"
+        if (statusFilter.length === availableStatuses.length) return "All Status"
         if (statusFilter.length === 1) return statusFilter[0]
         return `${statusFilter.length} Status`
     }
@@ -290,7 +296,7 @@ export default function FreelancerContractsPage() {
                                     <Button variant="outline" className="flex items-center gap-2">
                                         <Filter className="w-4 h-4" />
                                         {getFilterButtonText()}
-                                        {statusFilter.length > 0 && statusFilter.length < 5 && (
+                                        {statusFilter.length > 0 && statusFilter.length < [...new Set(contracts.map(contract => contract.status))].length && (
                                             <Badge variant="secondary" className="ml-1">
                                                 {statusFilter.length}
                                             </Badge>
@@ -305,36 +311,15 @@ export default function FreelancerContractsPage() {
                                         Clear All
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuCheckboxItem 
-                                        checked={statusFilter.includes("pending")}
-                                        onCheckedChange={(checked) => handleStatusFilterChange("pending", checked)}
-                                    >
-                                        Pending
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem 
-                                        checked={statusFilter.includes("active")}
-                                        onCheckedChange={(checked) => handleStatusFilterChange("active", checked)}
-                                    >
-                                        Active
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem 
-                                        checked={statusFilter.includes("submitted")}
-                                        onCheckedChange={(checked) => handleStatusFilterChange("submitted", checked)}
-                                    >
-                                        Submitted
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem 
-                                        checked={statusFilter.includes("completed")}
-                                        onCheckedChange={(checked) => handleStatusFilterChange("completed", checked)}
-                                    >
-                                        Completed
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem 
-                                        checked={statusFilter.includes("rejected")}
-                                        onCheckedChange={(checked) => handleStatusFilterChange("rejected", checked)}
-                                    >
-                                        Rejected
-                                    </DropdownMenuCheckboxItem>
+                                    {[...new Set(contracts.map(contract => contract.status))].map((status) => (
+                                        <DropdownMenuCheckboxItem 
+                                            key={status}
+                                            checked={statusFilter.includes(status)}
+                                            onCheckedChange={(checked) => handleStatusFilterChange(status, checked)}
+                                        >
+                                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                                        </DropdownMenuCheckboxItem>
+                                    ))}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
