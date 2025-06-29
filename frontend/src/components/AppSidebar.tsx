@@ -1,6 +1,7 @@
-import { FileCheck2, FilePlus2, Home, Settings, Star, Bell, MailCheckIcon } from "lucide-react";
+import { FileCheck2, FilePlus2, Home, Settings, Star, Bell, MailCheckIcon, MessageSquare } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { NavUser } from "./NavUser";
+import ConnectWalletButton from "@/components/ConnectWalletButton";
 
 interface AppSidebarProps {
     role: "client" | "freelancer";
@@ -10,15 +11,18 @@ interface AppSidebarProps {
 const navItems = {
     client: [
         { title: "Dashboard", url: "/dashboard/client", icon: Home },
-        { title: "New Contract", url: "/dashboard/client", icon: FilePlus2 },
-        { title: "Contracts List", url: "/dashboard/client", icon: MailCheckIcon },
-        { title: "Notifications", url: "/dashboard/client", icon: Bell },
+        { title: "New Contract", url: "/dashboard/client/new-contract", icon: FilePlus2 },
+        { title: "My Contracts", url: "/dashboard/client/contracts", icon: MailCheckIcon },
+        { title: "Messages", url: "/dashboard/client/messages", icon: MessageSquare },
+        { title: "Ratings", url: "/dashboard/client/ratings", icon: Star },
+        { title: "Settings", url: "/dashboard/client/settings", icon: Settings },
     ],
     freelancer: [
         { title: "Dashboard", url: "/dashboard/freelancer", icon: Home },
-        { title: "My Contracts", url: "/dashboard/freelancer", icon: FileCheck2 },
-        { title: "Ratings", url: "/dashboard/freelancer", icon: Star },
-        { title: "Settings", url: "/dashboard/freelancer", icon: Settings },
+        { title: "My Contracts", url: "/dashboard/freelancer/contracts", icon: FileCheck2 },
+        { title: "Messages", url: "/dashboard/freelancer/messages", icon: MessageSquare },
+        { title: "Ratings", url: "/dashboard/freelancer/ratings", icon: Star },
+        { title: "Settings", url: "/dashboard/freelancer/settings", icon: Settings },
     ],
 };
 
@@ -47,6 +51,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
                 </SidebarGroup>
             </SidebarContent>
             <SidebarFooter>
+                <ConnectWalletButton />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

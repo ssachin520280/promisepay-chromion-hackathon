@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +17,11 @@ import {
 import { Contract } from "../../types/contracts";
 import { toast } from "@/hooks/use-toast";
 import { Check } from "lucide-react";
+// Add ethers and ABI import
+import { ethers } from "ethers";
+import EscrowFactoryABI from "@/abi/EscrowFactory.json";
+
+const ESCROW_FACTORY_ADDRESS = "0xDbb7ca1bdd292D1AEb0b125BD69fd1565A0FEe5f";
 
 type ReleasePaymentDialogProps = {
   open: boolean;
@@ -44,35 +48,78 @@ export function ReleasePaymentDialog({
     }).format(amount);
   };
 
+  // Main function to release payment on-chain
   const handleReleasePayment = async () => {
+    console.log("53")
     setIsSubmitting(true);
+    console.log(55)
 
     try {
-      // Mock API call - would connect to Firebase in real implementation
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log(57)
+      if (!window.ethereum) {
+        console.log(58)
+        throw new Error("MetaMask not found. Please install MetaMask.");
+      }
+      if (!contract.projectId) {
+        console.log(63)
+        console.log(contract)
+        throw new Error("Project ID missing from contract.");
+      }
+
+      console.log(64);
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const escrowFactory = new ethers.Contract(
+        ESCROW_FACTORY_ADDRESS,
+        EscrowFactoryABI.abi,
+        signer
+      );
+
+      // 1. Call approveByAI (if not already approved)
+      try {
+        const tx1 = await escrowFactory.approveByClient(contract.projectId);
+        await tx1.wait();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (err: any) {
+        console.log(82);
+        // If already approved or not allowed, ignore error
+        if (
+          !(
+            err?.message?.includes("NotAI") ||
+            err?.message?.includes("already approved") ||
+            err?.error?.message?.includes("NotAI")
+          )
+        ) {
+          throw err;
+        }
+      }
+
+      // 2. Call releaseFunds
+      const tx2 = await escrowFactory.releaseFunds(contract.projectId);
+      await tx2.wait();
 
       setIsReleased(true);
 
-      // Wait for animation to complete before showing success toast
       setTimeout(() => {
         toast({
           title: "Payment released",
-          description: "Payment has been successfully processed.",
+          description: "Payment has been successfully processed on-chain.",
         });
 
         onPaymentReleased?.();
 
-        // Close dialog after a delay to show success state
         setTimeout(() => {
           onOpenChange(false);
           setIsReleased(false);
         }, 1000);
       }, 1000);
 
-    } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
       toast({
-        title: `${error}`,
-        description: "Failed to process payment. Please try again.",
+        title: "Failed to process payment",
+        description: error?.message || "Please try again.",
         variant: "destructive",
       });
       setIsSubmitting(false);
@@ -123,7 +170,7 @@ export function ReleasePaymentDialog({
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Amount:</span>
                         <span className="font-medium text-green-600 dark:text-green-400">
-                          {formatCurrency(contract.amount)}
+                          {formatCurrency(contract.amountUsd)}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -156,7 +203,7 @@ export function ReleasePaymentDialog({
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Total amount:</span>
                       <span className="font-medium">
-                        {formatCurrency(contract.amount)}
+                        {formatCurrency(contract.amountUsd)}
                       </span>
                     </div>
                   </div>

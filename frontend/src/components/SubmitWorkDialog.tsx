@@ -98,7 +98,7 @@ export function SubmitWorkDialog({
             <div className="flex flex-col">
               <span className="text-muted-foreground">Amount:</span>
               <span className="font-medium text-green-600 dark:text-green-400">
-                {formatCurrency(contract.amount)}
+                {formatCurrency(contract.amountUsd)}
               </span>
             </div>
 

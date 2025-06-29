@@ -102,7 +102,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t bg-background">
         <div className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground">
-          <p>© 2024 PromisePay. All rights reserved.</p>
+          <p>© 2025 PromisePay. All rights reserved.</p>
         </div>
       </footer>
     </div>

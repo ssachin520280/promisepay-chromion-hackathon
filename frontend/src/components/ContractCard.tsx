@@ -115,7 +115,7 @@ export function ContractCard({
 
             {/* Payment Amount */}
             <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-              <span className="font-semibold">{formatCurrency(contract.amount)}</span>
+              <span className="font-semibold">{formatCurrency(contract.amountUsd)}</span>
             </div>
 
             {/* Created At */}

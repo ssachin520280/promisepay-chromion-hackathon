@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { onAuthStateChanged, User } from "firebase/auth"; // Add this import
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { ContractsList } from "@/components/ContractsList";
 import { SubmitWorkDialog } from "@/components/SubmitWorkDialog";
@@ -15,10 +16,16 @@ import {
     where,
     getDocs,
     Timestamp,
+    doc,
+    setDoc,
+    getDoc
 } from "firebase/firestore";
 import { Contract } from "../../../../../types/contracts";
 import { Chat } from '@/components/Chat/Chat';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export default function FreelancerDashboard() {
     const [contracts, setContracts] = useState<Contract[]>([]);
@@ -27,14 +34,36 @@ export default function FreelancerDashboard() {
     );
     const [isSubmitWorkOpen, setIsSubmitWorkOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("overview");
+    const [walletDialogOpen, setWalletDialogOpen] = useState(false);
+    const [walletAddress, setWalletAddress] = useState("");
+    const [savingWallet, setSavingWallet] = useState(false);
+    const [walletError, setWalletError] = useState("");
+
+    const [userId, setUserId] = useState<string | null>(null);
+    const [userName, setUserName] = useState<string>("");
+
+    // Fetch authenticated user info
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+            if (user) {
+                setUserId(user.uid);
+                setUserName(user.displayName || user.email || "Freelancer");
+            } else {
+                setUserId(null);
+                setUserName("Freelancer");
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
 
     useEffect(() => {
         const fetchContracts = async () => {
-            if (!auth.currentUser) return;
+            if (!userId) return;
 
             const q = query(
                 collection(db, "contracts"),
-                where("freelancerId", "==", auth.currentUser.uid)
+                where("freelancerId", "==", userId)
             );
 
             const snapshot = await getDocs(q);
@@ -46,6 +75,7 @@ export default function FreelancerDashboard() {
                     title: raw.title,
                     description: raw.description,
                     amount: raw.amount,
+                    amountUsd: raw.amountUsd,
                     deadline: raw.deadline,
                     status: raw.status,
                     clientId: raw.clientId,
@@ -68,23 +98,53 @@ export default function FreelancerDashboard() {
         };
 
         fetchContracts();
-    }, []);
+    }, [userId]);
 
-    const handleAcceptContract = (contractId: string) => {
+    // Fetch wallet address on mount
+    useEffect(() => {
+        const fetchWallet = async () => {
+            if (!userId) return;
+            const userRef = doc(db, "users", userId);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+                setWalletAddress(userSnap.data().walletAddress || "");
+            }
+        };
+        fetchWallet();
+    }, [userId]);
+
+    const handleAcceptContract = async (contractId: string) => {
+        const acceptedAt = new Date();
+        const blockchainHash = `0x${Math.random().toString(16).substring(2, 30)}`;
+
         setContracts((prev) =>
             prev.map((c) =>
                 c.id === contractId
                     ? {
                         ...c,
                         status: "active",
-                        acceptedAt: new Date(),
-                        blockchainHash: `0x${Math.random().toString(16).substring(2, 30)}`,
+                        acceptedAt,
+                        blockchainHash,
                     }
                     : c
             )
         );
 
-        // Firestore update can be added here
+        // Firestore update
+        try {
+            const contractRef = doc(db, "contracts", contractId);
+            await setDoc(
+                contractRef,
+                {
+                    status: "active",
+                    acceptedAt: Timestamp.fromDate(acceptedAt),
+                    blockchainHash,
+                },
+                { merge: true }
+            );
+        } catch (err) {
+            console.error("Failed to update contract in Firestore:", err);
+        }
     };
 
     const handleSubmitWork = (contractId: string) => {
@@ -93,8 +153,10 @@ export default function FreelancerDashboard() {
         setIsSubmitWorkOpen(true);
     };
 
-    const handleWorkSubmitted = () => {
+    const handleWorkSubmitted = async () => {
         if (!selectedContract) return;
+
+        const submittedAt = new Date();
 
         setContracts((prev) =>
             prev.map((c) =>
@@ -102,17 +164,52 @@ export default function FreelancerDashboard() {
                     ? {
                         ...c,
                         status: "submitted",
-                        submittedAt: new Date(),
+                        submittedAt,
                     }
                     : c
             )
         );
+
+        // Firestore update
+        try {
+            const contractRef = doc(db, "contracts", selectedContract.id);
+            await setDoc(
+                contractRef,
+                {
+                    status: "submitted",
+                    submittedAt: Timestamp.fromDate(submittedAt),
+                },
+                { merge: true }
+            );
+        } catch (err) {
+            console.error("Failed to update contract in Firestore:", err);
+        }
+    };
+
+    const handleSaveWallet = async () => {
+        setSavingWallet(true);
+        setWalletError("");
+        try {
+            if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+                setWalletError("Invalid wallet address");
+                setSavingWallet(false);
+                return;
+            }
+            if (!auth.currentUser) throw new Error("Not authenticated");
+            const userRef = doc(db, "users", auth.currentUser.uid);
+            await setDoc(userRef, { walletAddress }, { merge: true });
+            setWalletDialogOpen(false);
+        } catch {
+            setWalletError("Failed to save wallet address");
+        } finally {
+            setSavingWallet(false);
+        }
     };
 
     // Stats
     const totalEarnings = contracts
         .filter((c) => c.status === "completed")
-        .reduce((sum, c) => sum + c.amount, 0);
+        .reduce((sum, c) => sum + c.amountUsd, 0);
 
     const pendingContracts = contracts.filter((c) => c.status === "pending")
         .length;
@@ -134,13 +231,27 @@ export default function FreelancerDashboard() {
         <div className="min-h-screen w-full flex flex-col bg-background">
             <DashboardHeader
                 userType="freelancer"
-                userName={auth.currentUser?.displayName || "Freelancer"}
+                userName={userName}
             />
 
             <main className="flex-1 container mx-auto px-4 py-6">
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold">Freelancer Dashboard</h1>
-                    <p className="text-muted-foreground">Manage your projects</p>
+                <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <div>
+                        <h1 className="text-2xl font-bold">Freelancer Dashboard</h1>
+                        <p className="text-muted-foreground">Manage your projects</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                            Wallet: {walletAddress ? (
+                                <span className="font-mono">{walletAddress}</span>
+                            ) : (
+                                <span className="italic">Not set</span>
+                            )}
+                        </span>
+                        <Button size="sm" onClick={() => setWalletDialogOpen(true)}>
+                            {walletAddress ? "Edit Wallet" : "Add Wallet"}
+                        </Button>
+                    </div>
                 </div>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -192,8 +303,8 @@ export default function FreelancerDashboard() {
 
                     <TabsContent value="messages" className="m-0">
                         <div className="bg-card rounded-lg border shadow-sm p-6">
-                            {auth.currentUser && (
-                                <Chat userId={auth.currentUser.uid} userType="freelancer" />
+                            {userId && (
+                                <Chat userId={userId} userType="freelancer" />
                             )}
                         </div>
                     </TabsContent>
@@ -206,6 +317,27 @@ export default function FreelancerDashboard() {
                 contract={selectedContract}
                 onWorkSubmitted={handleWorkSubmitted}
             />
+
+            <Dialog open={walletDialogOpen} onOpenChange={setWalletDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{walletAddress ? "Edit Wallet Address" : "Add Wallet Address"}</DialogTitle>
+                    </DialogHeader>
+                    <Input
+                        placeholder="0x..."
+                        value={walletAddress}
+                        onChange={e => setWalletAddress(e.target.value)}
+                        className="font-mono"
+                        maxLength={42}
+                    />
+                    {walletError && <div className="text-red-500 text-sm">{walletError}</div>}
+                    <DialogFooter>
+                        <Button onClick={handleSaveWallet} disabled={savingWallet}>
+                            {savingWallet ? "Saving..." : "Save"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

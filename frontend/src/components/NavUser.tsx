@@ -15,9 +15,9 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/c
 
 // Import the useFirebase hook and Firebase's signOut method
 import { useFirebase } from "@/hooks/useFirebaseUser"
-import { signOut } from "firebase/auth"
-import { auth } from "../firebase/client" // Firebase auth import
 import { useRouter } from "next/navigation"
+import { auth } from "../../firebase/client"
+import { signOut } from "firebase/auth"
 
 export function NavUser() {
     // Fetch user data from the Firebase hook

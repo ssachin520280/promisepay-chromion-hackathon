@@ -20,6 +20,7 @@ export interface Freelancer {
     totalReviews?: number;
     // Communication
     conversations?: string[]; // Array of conversation IDs
+    walletAddress?: string;
 }
 
 export interface PortfolioItem {

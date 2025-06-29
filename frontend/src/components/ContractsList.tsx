@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Contract, FilterStatus } from "../../types/contracts";
 import { ContractCard } from "./ContractCard";
@@ -129,14 +128,32 @@ function ContractsGrid({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {contracts.map((contract) => (
-        <ContractCard
-          key={contract.id}
-          contract={contract}
-          userType={userType}
-          onAcceptContract={onAcceptContract}
-          onSubmitWork={onSubmitWork}
-          onReleasePayment={onReleasePayment}
-        />
+        <div key={contract.id} className="relative">
+          {/* AI Approval Badge */}
+          {"aiApproved" in contract && (
+            <span
+              className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-semibold ${
+                contract.aiApproved
+                  ? "bg-green-100 text-green-700 border border-green-300"
+                  : "bg-yellow-100 text-yellow-700 border border-yellow-300"
+              }`}
+              title={
+                contract.aiApproved
+                  ? "AI has approved this contract"
+                  : "Awaiting AI approval"
+              }
+            >
+              {contract.aiApproved ? "AI Approved" : "AI Pending"}
+            </span>
+          )}
+          <ContractCard
+            contract={contract}
+            userType={userType}
+            onAcceptContract={onAcceptContract}
+            onSubmitWork={onSubmitWork}
+            onReleasePayment={onReleasePayment}
+          />
+        </div>
       ))}
     </div>
   );

@@ -1,6 +1,6 @@
 "use client"
 import { signInWithPopup } from "firebase/auth"
-import { auth, db, provider } from "../firebase/client"
+import { auth, db, provider } from "../../firebase/client"
 import { Button } from "@/components/ui/button"
 import { Form } from "@/components/ui/form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -23,11 +23,13 @@ const authFormSchema = (type: FormType) =>
         password: z.string().min(8, "Password must be at least 8 characters"),
     })
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const AuthForm = ({ type }: { type: FormType }) => {
     const formSchema = authFormSchema(type)
     const router = useRouter()
+    const [isLoading, setIsLoading] = useState(false)
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -48,6 +50,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
     }, []);
 
     const handleGoogleSignIn = async () => {
+        setIsGoogleLoading(true)
         try {
             const result = await signInWithPopup(auth, provider);
             const user = result.user;
@@ -87,11 +90,14 @@ const AuthForm = ({ type }: { type: FormType }) => {
         } catch (error) {
             console.error(error);
             toast.error("Google sign-in failed.");
+        } finally {
+            setIsGoogleLoading(false)
         }
     };
 
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
+        setIsLoading(true)
         try {
             const auths = auth;
             const { email, password } = values
@@ -138,8 +144,20 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     return
                 }
 
-                toast.success("Logged in! Redirecting to dashboard.")
-                router.push("/")
+                // 🔍 Check user's role in Firestore
+                const userDocRef = doc(db, "users", userCredential.user.uid);
+                const userSnapshot = await getDoc(userDocRef);
+
+                if (userSnapshot.exists()) {
+                    const userData = userSnapshot.data();
+                    const role = userData.role;
+
+                    toast.success("Logged in! Redirecting to dashboard.")
+                    router.push(role ? `/dashboard/${role}` : "/sign-up/role-setup");
+                } else {
+                    toast.success("Logged in! Please select your role.")
+                    router.push("/sign-up/role-setup");
+                }
             }
         } catch (error: unknown) {
             console.error(error)
@@ -148,6 +166,8 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     ? error.message
                     : "Something went wrong."
             toast.error(message)
+        } finally {
+            setIsLoading(false)
         }
     }
 
@@ -190,21 +210,39 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     <Button
                         className="w-full border rounded-4xl hover:cursor-pointer hover:text-white hover:bg-gray-700"
                         type="submit"
+                        disabled={isLoading}
                     >
-                        {isSignIn ? "Sign In" : "Create an Account"}
+                        {isLoading ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-950 mr-2"></div>
+                                {isSignIn ? "Signing In..." : "Creating Account..."}
+                            </>
+                        ) : (
+                            isSignIn ? "Sign In" : "Create an Account"
+                        )}
                     </Button>
                     <Button
                         className="w-full border rounded-4xl mt-2 hover:cursor-pointer hover:bg-gray-800 hover:text-white bg-white flex items-center justify-center gap-2"
                         onClick={handleGoogleSignIn}
                         type="button"
+                        disabled={isGoogleLoading}
                     >
-                        <Image
-                            src="https://cdn.iconfinder.com/data/icons/social-media-2210/24/Google-512.png"
-                            alt="Google logo"
-                            width={20}
-                            height={20}
-                        />
-                        Continue with Google
+                        {isGoogleLoading ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-950 mr-2"></div>
+                                Signing in with Google...
+                            </>
+                        ) : (
+                            <>
+                                <Image
+                                    src="/google_logo.svg"
+                                    alt="Google logo"
+                                    width={20}
+                                    height={20}
+                                />
+                                Continue with Google
+                            </>
+                        )}
                     </Button>
 
                 </form>

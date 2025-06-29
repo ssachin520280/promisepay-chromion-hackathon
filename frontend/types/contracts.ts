@@ -4,7 +4,10 @@ export interface Contract {
   id: string;
   title: string;
   description: string;
-  amount: number;
+  aiApproved?: boolean;
+  amount: number; // ETH value
+  amountUsd: number; // USD value at contract creation
+  usdPerEth?: number; // USD/ETH price at contract creation
   deadline: string; // Store as "YYYY-MM-DD" string to match Firestore schema
   status: "pending" | "active" | "submitted" | "completed" | "rejected";
   clientId: string;
@@ -18,6 +21,9 @@ export interface Contract {
   submittedAt?: Date | Timestamp | null;
   completedAt?: Date | Timestamp | null;
   blockchainHash?: string | null;
+  clientWallet?: string;        
+  freelancerWallet?: string;
+  projectId?: string;       
 
   rating?: {
     clientToFreelancer?: {

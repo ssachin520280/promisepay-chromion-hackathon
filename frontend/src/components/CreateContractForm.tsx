@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { z } from "zod";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
@@ -27,6 +27,18 @@ import { cn } from "@/lib/utils";
 import { db, auth } from "../../firebase/client";
 import { addDoc, collection, Timestamp, query, where, getDocs } from "firebase/firestore";
 import type { Contract } from "../../types/contracts"; // Using our existing type
+import { ethers } from "ethers";
+import EscrowFactoryABI from "@/abi/EscrowFactory.json";
+
+// Add this to let TypeScript know about window.ethereum
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ethereum?: any;
+  }
+}
+
+const ESCROW_FACTORY_ADDRESS = "0xDbb7ca1bdd292D1AEb0b125BD69fd1565A0FEe5f";
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
@@ -40,6 +52,8 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [ethPrice, setEthPrice] = useState<number | null>(null);
+  const [ethAmount, setEthAmount] = useState<number | null>(null);
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -50,9 +64,32 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
     },
   });
 
+  // Fetch ETH price on mount
+  useEffect(() => {
+    const fetchEthPrice = async () => {
+      try {
+        const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+        const data = await res.json();
+        setEthPrice(data.ethereum.usd);
+      } catch {
+        setEthPrice(null);
+      }
+    };
+    fetchEthPrice();
+  }, []);
+
+  // Update ETH amount when USD changes
+  const watchedAmount = form.watch("amount");
+  useEffect(() => {
+    if (ethPrice && watchedAmount) {
+      setEthAmount(Number(watchedAmount) / ethPrice);
+    } else {
+      setEthAmount(null);
+    }
+  }, [watchedAmount, ethPrice, form]);
+
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
-
     try {
       if (!auth.currentUser) {
         toast({
@@ -82,11 +119,121 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
       const freelancerDoc = freelancerSnapshot.docs[0];
       const freelancerData = freelancerDoc.data();
 
+      // Check if freelancer has a walletAddress
+      if (!freelancerData.walletAddress) {
+        toast({
+          title: "Freelancer Wallet Required",
+          description: "Freelancer must have a wallet connected to be assigned this project.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check if walletAddress is a valid Ethereum address
+      if (!ethers.isAddress(freelancerData.walletAddress)) {
+        toast({
+          title: "Invalid Wallet Address",
+          description: "Freelancer's wallet address is invalid. Please ask the freelancer to reconnect their wallet.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      console.log(97, freelancerData)
+
+      let signer = null;
+      let provider;
+      if (window.ethereum == null) {
+
+          // If MetaMask is not installed, we use the default provider,
+          // which is backed by a variety of third-party services (such
+          // as INFURA). They do not have private keys installed,
+          // so they only have read-only access
+          console.log("MetaMask not installed; using read-only defaults")
+          provider = ethers.getDefaultProvider()
+          toast({
+            title: "Wallet Not Found",
+            description: "Please install MetaMask to proceed.",
+            variant: "destructive",
+          });
+          return;
+      } else {
+
+          // Connect to the MetaMask EIP-1193 object. This is a standard
+          // protocol that allows Ethers access to make all read-only
+          // requests through MetaMask.
+          provider = new ethers.BrowserProvider(window.ethereum)
+
+          // It also provides an opportunity to request access to write
+          // operations, which will be performed by the private key
+          // that MetaMask manages for the user.
+          signer = await provider.getSigner();
+      }
+
+      console.log(await provider.getBlockNumber());
+      const signerAddress = await signer.getAddress();
+      const balance = await provider.getBalance(signerAddress);
+      console.log("balance: ", balance);
+
+      const contract = new ethers.Contract(
+        ESCROW_FACTORY_ADDRESS,
+        EscrowFactoryABI.abi,
+        signer
+      );
+
+      console.log(contract);
+
+      if (!ethPrice) {
+        toast({
+          title: "ETH Price Unavailable",
+          description: "Could not fetch ETH price. Please try again later.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const ethValue = Number(data.amount) / ethPrice;
+      // Fix: trim to 18 decimals to avoid parseEther error
+      const ethValueStr = ethValue.toFixed(18).replace(/0+$/, '').replace(/\.$/, '');
+      const tx = await contract.createProject(
+        freelancerData.walletAddress,
+        { value: ethers.parseEther(ethValueStr) }
+      );
+      const receipt = await tx.wait();
+
+      // Find the ProjectCreated event in the logs
+      const event = receipt.logs
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((log: any) => {
+          try {
+            return contract.interface.parseLog(log);
+          } catch {
+            return null;
+          }
+        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .find((e: any) => e && e.name === "ProjectCreated");
+
+      if (!event) {
+        toast({
+          title: "Contract Creation Failed",
+          description: "Could not find ProjectCreated event.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const { projectId, client, freelancer } = event.args;
+
       // Step 2: Build contract data (fully matching our Contract type)
       const contractData: Omit<Contract, "id"> = {
         title: data.title,
         description: data.description,
-        amount: data.amount,
+        amount: Number(ethValueStr), // Store ETH amount rounded
+        amountUsd: Number(data.amount), // Store USD value
+        usdPerEth: ethPrice, // Store USD/ETH price at contract creation
         deadline: format(data.deadline, "yyyy-MM-dd"), // Match our string format
         status: "pending",
         clientId: auth.currentUser.uid,
@@ -95,8 +242,11 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
         freelancerId: freelancerDoc.id,
         freelancerName: freelancerData.name || "",
         freelancerEmail: freelancerData.email || "",
+        clientWallet: client,
+        freelancerWallet: freelancer,   
+        projectId: projectId.toString(),
         createdAt: Timestamp.now(),
-        acceptedAt: null, // Using undefined instead of null
+        acceptedAt: null,
         submittedAt: null,
         completedAt: null,
         blockchainHash: null,
@@ -112,12 +262,13 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
             createdAt: null,
           },
         },
-
         unionLogs: {
           contractHash: null,
           ratingHash: null,
         },
       };
+
+      console.log(183, contractData)
 
       const contractRef = await addDoc(collection(db, "contracts"), contractData);
       console.log("Contract created with ID:", contractRef.id);
@@ -215,7 +366,13 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
                       }}
                     />
                   </FormControl>
-                  <FormDescription>Fixed payment amount for the entire project</FormDescription>
+                  <FormDescription>
+                    Fixed payment amount for the entire project. {ethAmount && ethPrice && (
+                      <span className="text-xs text-muted-foreground block mt-1">
+                        ≈ {ethAmount.toFixed(6)} ETH (1 ETH = ${ethPrice})
+                      </span>
+                    )}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

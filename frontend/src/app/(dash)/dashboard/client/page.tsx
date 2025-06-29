@@ -14,15 +14,21 @@ import { ReleasePaymentDialog } from "@/components/ReleasePaymentDialog";
 import { Contract } from "../../../../../types/contracts"; // Ensure this is properly typed
 import { Plus, ListChecks } from "lucide-react";
 import { Chat } from '@/components/Chat/Chat';
+import { useSearchParams } from 'next/navigation';
 
 export default function ClientDashboard() {
-    const [activeTab, setActiveTab] = useState("contracts");
+    const searchParams = useSearchParams();
+    const [activeTab, setActiveTab] = useState(() => {
+        const tab = searchParams.get('tab');
+        return tab === 'create' || tab === 'messages' ? tab : 'contracts';
+    });
     const [contracts, setContracts] = useState<Contract[]>([]); // Ensure the type is Contract[]
     const [loading, setLoading] = useState(true);
     const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
     const [isReleasePaymentOpen, setIsReleasePaymentOpen] = useState(false);
     const [clientId, setClientId] = useState<string | null>(null);
     const [userName, setUserName] = useState<string>("");
+    const [aiStatuses, setAIStatuses] = useState<Record<string, boolean>>({});
 
     // Fetch authenticated user info
     useEffect(() => {
@@ -57,6 +63,29 @@ export default function ClientDashboard() {
 
         fetchContracts();
     }, [clientId]);
+
+    // Fetch AI approval status for all contracts
+    useEffect(() => {
+        async function fetchAIStatuses() {
+            const statuses: Record<string, boolean> = {};
+            for (const contract of contracts) {
+                console.log(contract.aiApproved);
+                // Assuming contract.id is the projectId (number or string)
+                try {
+                    statuses[contract.id] = contract.aiApproved ?? false;
+                } catch {
+                    statuses[contract.id] = false;
+                }
+            }
+            setAIStatuses(statuses);
+        }
+        if (contracts.length > 0) {
+            fetchAIStatuses();
+            // Optionally, poll every 10 seconds:
+            const interval = setInterval(fetchAIStatuses, 10000);
+            return () => clearInterval(interval);
+        }
+    }, [contracts]);
 
     const handleReleasePayment = (contractId: string) => {
         const contract = contracts.find(c => c.id === contractId);
@@ -94,23 +123,10 @@ export default function ClientDashboard() {
     };
 
     return (
-        <div className="min-h-screen ml-12 flex flex-col bg-background">
+        <div className="min-h-screen mt-4 flex flex-col bg-background">
             <DashboardHeader userType="client" userName={userName} />
-
-            <main className="flex-1 container max-w-6xl py-6">
+            <main className="flex-1 container max-w-6xl py-6 px-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-                    <div>
-                        <h1 className="text-2xl font-bold">Client Dashboard</h1>
-                        <p className="text-muted-foreground">Manage your projects and contracts</p>
-                    </div>
-
-                    {activeTab === "contracts" && (
-                        <Button className="mt-4 md:mt-0" onClick={() => setActiveTab("create")}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            New Contract
-                        </Button>
-                    )}
-
                     {activeTab === "create" && (
                         <Button
                             variant="outline"
@@ -137,7 +153,10 @@ export default function ClientDashboard() {
                                     <p>Loading contracts...</p>
                                 ) : (
                                     <ContractsList
-                                        contracts={contracts}
+                                        contracts={contracts.map(c => ({
+                                            ...c,
+                                            aiApproved: aiStatuses[c.id] ?? false,
+                                        }))}
                                         userType="client"
                                         onReleasePayment={handleReleasePayment}
                                     />
