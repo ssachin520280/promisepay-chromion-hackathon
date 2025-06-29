@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { onAuthStateChanged, User } from "firebase/auth"; // Add this import
+import { onAuthStateChanged, User } from "firebase/auth";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { ContractsList } from "@/components/ContractsList";
 import { SubmitWorkDialog } from "@/components/SubmitWorkDialog";
@@ -11,16 +11,13 @@ import { Check } from "lucide-react";
 import { format } from "date-fns";
 import { auth, db } from "../../../../../firebase/client";
 import {
-    collection,
-    query,
-    where,
-    getDocs,
     Timestamp,
     doc,
     setDoc,
     getDoc
 } from "firebase/firestore";
 import { Contract } from "../../../../../types/contracts";
+import { getContractsByFreelancerId } from "@/lib/contracts";
 import { Chat } from '@/components/Chat/Chat';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -38,6 +35,7 @@ export default function FreelancerDashboard() {
     const [walletAddress, setWalletAddress] = useState("");
     const [savingWallet, setSavingWallet] = useState(false);
     const [walletError, setWalletError] = useState("");
+    const [loading, setLoading] = useState(true);
 
     const [userId, setUserId] = useState<string | null>(null);
     const [userName, setUserName] = useState<string>("");
@@ -61,40 +59,15 @@ export default function FreelancerDashboard() {
         const fetchContracts = async () => {
             if (!userId) return;
 
-            const q = query(
-                collection(db, "contracts"),
-                where("freelancerId", "==", userId)
-            );
-
-            const snapshot = await getDocs(q);
-            const data: Contract[] = snapshot.docs.map((doc) => {
-                const raw = doc.data();
-
-                return {
-                    id: doc.id,
-                    title: raw.title,
-                    description: raw.description,
-                    amount: raw.amount,
-                    amountUsd: raw.amountUsd,
-                    deadline: raw.deadline,
-                    status: raw.status,
-                    clientId: raw.clientId,
-                    clientName: raw.clientName,
-                    clientEmail: raw.clientEmail,
-                    freelancerId: raw.freelancerId,
-                    freelancerName: raw.freelancerName,
-                    freelancerEmail: raw.freelancerEmail,
-                    createdAt: raw.createdAt,
-                    acceptedAt: raw.acceptedAt ?? null,
-                    submittedAt: raw.submittedAt ?? null,
-                    completedAt: raw.completedAt ?? null,
-                    blockchainHash: raw.blockchainHash ?? null,
-                    rating: raw.rating ?? {},
-                    unionLogs: raw.unionLogs ?? {},
-                };
-            });
-
-            setContracts(data);
+            setLoading(true);
+            try {
+                const fetchedContracts = await getContractsByFreelancerId(userId);
+                setContracts(fetchedContracts);
+            } catch (error) {
+                console.error("Failed to fetch contracts:", error);
+            } finally {
+                setLoading(false);
+            }
         };
 
         fetchContracts();
@@ -280,12 +253,16 @@ export default function FreelancerDashboard() {
                         {/* Contracts List */}
                         <div className="bg-card rounded-lg border shadow-sm p-6">
                             <h2 className="text-xl font-semibold mb-4">My Contracts</h2>
-                            <ContractsList
-                                contracts={contracts}
-                                userType="freelancer"
-                                onAcceptContract={handleAcceptContract}
-                                onSubmitWork={handleSubmitWork}
-                            />
+                            {loading ? (
+                                <p>Loading contracts...</p>
+                            ) : (
+                                <ContractsList
+                                    contracts={contracts}
+                                    userType="freelancer"
+                                    onAcceptContract={handleAcceptContract}
+                                    onSubmitWork={handleSubmitWork}
+                                />
+                            )}
                         </div>
 
                         {/* Recent Feedback */}
