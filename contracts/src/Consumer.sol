@@ -197,7 +197,7 @@ contract Consumer is FunctionsClient, ConfirmedOwner {
      * @param _i The uint to convert
      * @return The string representation
      */
-    function uint2str(uint256 _i) internal pure returns (string memory) {
+    function uint2str(uint256 _i) public pure returns (string memory) {
         if (_i == 0) {
             return "0";
         }

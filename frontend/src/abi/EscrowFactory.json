@@ -1,320 +1,481 @@
 {
     "abi": [
-      {
-        "type": "constructor",
-        "inputs": [
-          {
-            "name": "_aiAgent",
-            "type": "address",
-            "internalType": "address"
-          }
-        ],
-        "stateMutability": "nonpayable"
-      },
-      {
-        "type": "function",
-        "name": "aiAgent",
-        "inputs": [],
-        "outputs": [
-          {
-            "name": "",
-            "type": "address",
-            "internalType": "address"
-          }
-        ],
-        "stateMutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "approveByAI",
-        "inputs": [
-          {
-            "name": "projectId",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ],
-        "outputs": [],
-        "stateMutability": "nonpayable"
-      },
-      {
-        "type": "function",
-        "name": "approveByClient",
-        "inputs": [
-          {
-            "name": "projectId",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ],
-        "outputs": [],
-        "stateMutability": "nonpayable"
-      },
-      {
-        "type": "function",
-        "name": "cancelProject",
-        "inputs": [
-          {
-            "name": "projectId",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ],
-        "outputs": [],
-        "stateMutability": "nonpayable"
-      },
-      {
-        "type": "function",
-        "name": "createProject",
-        "inputs": [
-          {
-            "name": "freelancer",
-            "type": "address",
-            "internalType": "address"
-          }
-        ],
-        "outputs": [],
-        "stateMutability": "payable"
-      },
-      {
-        "type": "function",
-        "name": "getProject",
-        "inputs": [
-          {
-            "name": "projectId",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ],
-        "outputs": [
-          {
-            "name": "",
-            "type": "tuple",
-            "internalType": "struct EscrowFactory.Project",
-            "components": [
-              {
-                "name": "client",
-                "type": "address",
-                "internalType": "address"
-              },
-              {
-                "name": "freelancer",
-                "type": "address",
-                "internalType": "address"
-              },
-              {
-                "name": "amount",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "aiApproved",
-                "type": "bool",
-                "internalType": "bool"
-              },
-              {
-                "name": "clientApproved",
-                "type": "bool",
-                "internalType": "bool"
-              }
-            ]
-          }
-        ],
-        "stateMutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "nextProjectId",
-        "inputs": [],
-        "outputs": [
-          {
-            "name": "",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ],
-        "stateMutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "projects",
-        "inputs": [
-          {
-            "name": "",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ],
-        "outputs": [
-          {
-            "name": "client",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "freelancer",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "aiApproved",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "clientApproved",
-            "type": "bool",
-            "internalType": "bool"
-          }
-        ],
-        "stateMutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "releaseFunds",
-        "inputs": [
-          {
-            "name": "projectId",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ],
-        "outputs": [],
-        "stateMutability": "nonpayable"
-      },
-      {
-        "type": "event",
-        "name": "FundsReleased",
-        "inputs": [
-          {
-            "name": "projectId",
-            "type": "uint256",
-            "indexed": true,
-            "internalType": "uint256"
-          }
-        ],
-        "anonymous": false
-      },
-      {
-        "type": "event",
-        "name": "ProjectApproved",
-        "inputs": [
-          {
-            "name": "projectId",
-            "type": "uint256",
-            "indexed": true,
-            "internalType": "uint256"
-          },
-          {
-            "name": "approver",
-            "type": "address",
-            "indexed": false,
-            "internalType": "address"
-          }
-        ],
-        "anonymous": false
-      },
-      {
-        "type": "event",
-        "name": "ProjectCancelled",
-        "inputs": [
-          {
-            "name": "projectId",
-            "type": "uint256",
-            "indexed": true,
-            "internalType": "uint256"
-          }
-        ],
-        "anonymous": false
-      },
-      {
-        "type": "event",
-        "name": "ProjectCreated",
-        "inputs": [
-          {
-            "name": "projectId",
-            "type": "uint256",
-            "indexed": true,
-            "internalType": "uint256"
-          },
-          {
-            "name": "client",
-            "type": "address",
-            "indexed": false,
-            "internalType": "address"
-          },
-          {
-            "name": "freelancer",
-            "type": "address",
-            "indexed": false,
-            "internalType": "address"
-          },
-          {
-            "name": "amount",
-            "type": "uint256",
-            "indexed": false,
-            "internalType": "uint256"
-          }
-        ],
-        "anonymous": false
-      },
-      {
-        "type": "event",
-        "name": "ProjectSubmitted",
-        "inputs": [
-          {
-            "name": "projectId",
-            "type": "uint256",
-            "indexed": true,
-            "internalType": "uint256"
-          }
-        ],
-        "anonymous": false
-      },
-      {
-        "type": "error",
-        "name": "ApprovalsMissing",
-        "inputs": []
-      },
-      {
-        "type": "error",
-        "name": "InvalidProject",
-        "inputs": []
-      },
-      {
-        "type": "error",
-        "name": "NotAI",
-        "inputs": []
-      },
-      {
-        "type": "error",
-        "name": "NotClient",
-        "inputs": []
-      },
-      {
-        "type": "error",
-        "name": "PaymentFailed",
-        "inputs": []
-      },
-      {
-        "type": "error",
-        "name": "ReentrancyGuardReentrantCall",
-        "inputs": []
-      },
-      {
-        "type": "error",
-        "name": "RefundFailed",
-        "inputs": []
-      },
-      {
-        "type": "error",
-        "name": "ZeroValue",
-        "inputs": []
-      }
+        {
+            "type": "constructor",
+            "inputs": [
+                {
+                    "name": "_aiAgent",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "function",
+            "name": "acceptContract",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "function",
+            "name": "aiAgent",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "approveByAI",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "aiResponse",
+                    "type": "string",
+                    "internalType": "string"
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "function",
+            "name": "cancelProject",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "eoaAddress",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "function",
+            "name": "consumerContract",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "createProject",
+            "inputs": [
+                {
+                    "name": "freelancer",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "payable"
+        },
+        {
+            "type": "function",
+            "name": "getProject",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "tuple",
+                    "internalType": "struct EscrowFactory.Project",
+                    "components": [
+                        {
+                            "name": "client",
+                            "type": "address",
+                            "internalType": "address"
+                        },
+                        {
+                            "name": "freelancer",
+                            "type": "address",
+                            "internalType": "address"
+                        },
+                        {
+                            "name": "amount",
+                            "type": "uint256",
+                            "internalType": "uint256"
+                        },
+                        {
+                            "name": "status",
+                            "type": "uint8",
+                            "internalType": "enum EscrowFactory.ProjectStatus"
+                        },
+                        {
+                            "name": "aiResponse",
+                            "type": "string",
+                            "internalType": "string"
+                        },
+                        {
+                            "name": "creationTimestamp",
+                            "type": "uint256",
+                            "internalType": "uint256"
+                        }
+                    ]
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "getProjectStatus",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint8",
+                    "internalType": "enum EscrowFactory.ProjectStatus"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "nextProjectId",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "owner",
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "projects",
+            "inputs": [
+                {
+                    "name": "",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "client",
+                    "type": "address",
+                    "internalType": "address"
+                },
+                {
+                    "name": "freelancer",
+                    "type": "address",
+                    "internalType": "address"
+                },
+                {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "status",
+                    "type": "uint8",
+                    "internalType": "enum EscrowFactory.ProjectStatus"
+                },
+                {
+                    "name": "aiResponse",
+                    "type": "string",
+                    "internalType": "string"
+                },
+                {
+                    "name": "creationTimestamp",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "stateMutability": "view"
+        },
+        {
+            "type": "function",
+            "name": "releaseFunds",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "function",
+            "name": "submitWork",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "function",
+            "name": "updateConsumerContract",
+            "inputs": [
+                {
+                    "name": "newConsumer",
+                    "type": "address",
+                    "internalType": "address"
+                }
+            ],
+            "outputs": [],
+            "stateMutability": "nonpayable"
+        },
+        {
+            "type": "event",
+            "name": "FundsReleased",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "indexed": true,
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "freelancer",
+                    "type": "address",
+                    "indexed": false,
+                    "internalType": "address"
+                },
+                {
+                    "name": "amount",
+                    "type": "uint256",
+                    "indexed": false,
+                    "internalType": "uint256"
+                }
+            ],
+            "anonymous": false
+        },
+        {
+            "type": "event",
+            "name": "ProjectAccepted",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "indexed": true,
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "freelancer",
+                    "type": "address",
+                    "indexed": false,
+                    "internalType": "address"
+                }
+            ],
+            "anonymous": false
+        },
+        {
+            "type": "event",
+            "name": "ProjectApproved",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "indexed": true,
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "approver",
+                    "type": "address",
+                    "indexed": false,
+                    "internalType": "address"
+                },
+                {
+                    "name": "aiResponse",
+                    "type": "string",
+                    "indexed": false,
+                    "internalType": "string"
+                }
+            ],
+            "anonymous": false
+        },
+        {
+            "type": "event",
+            "name": "ProjectCancelled",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "indexed": true,
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "cancelledBy",
+                    "type": "address",
+                    "indexed": false,
+                    "internalType": "address"
+                },
+                {
+                    "name": "refundedTo",
+                    "type": "address",
+                    "indexed": false,
+                    "internalType": "address"
+                }
+            ],
+            "anonymous": false
+        },
+        {
+            "type": "event",
+            "name": "ProjectCreated",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "indexed": true,
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "client",
+                    "type": "address",
+                    "indexed": false,
+                    "internalType": "address"
+                },
+                {
+                    "name": "freelancer",
+                    "type": "address",
+                    "indexed": false,
+                    "internalType": "address"
+                },
+                {
+                    "name": "amount",
+                    "type": "uint256",
+                    "indexed": false,
+                    "internalType": "uint256"
+                }
+            ],
+            "anonymous": false
+        },
+        {
+            "type": "event",
+            "name": "ProjectSubmitted",
+            "inputs": [
+                {
+                    "name": "projectId",
+                    "type": "uint256",
+                    "indexed": true,
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "freelancer",
+                    "type": "address",
+                    "indexed": false,
+                    "internalType": "address"
+                }
+            ],
+            "anonymous": false
+        },
+        {
+            "type": "error",
+            "name": "InvalidProject",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "InvalidStatus",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "NotAI",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "NotClient",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "NotConsumerContract",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "NotFreelancer",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "PaymentFailed",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "ReentrancyGuardReentrantCall",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "RefundFailed",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "UnauthorizedCancellation",
+            "inputs": []
+        },
+        {
+            "type": "error",
+            "name": "ZeroValue",
+            "inputs": []
+        }
     ]
-  }
+}

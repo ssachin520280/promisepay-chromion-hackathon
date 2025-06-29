@@ -11,10 +11,14 @@ contract DeployEscrowFactory is Script {
     function run() external {
         vm.startBroadcast();
 
-        EscrowFactory escrow = new EscrowFactory(aiAgent, consumerContract);
+        EscrowFactory escrow = new EscrowFactory(aiAgent);
 
         console.log("EscrowFactory deployed at:", address(escrow));
-        // TODO: need to also update the consumer address
+        console.log("Owner set to:", escrow.owner());
+        
+        // Set the consumer contract address
+        escrow.updateConsumerContract(consumerContract);
+        console.log("Consumer contract set to:", escrow.consumerContract());
 
         vm.stopBroadcast();
     }

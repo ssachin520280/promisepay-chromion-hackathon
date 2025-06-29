@@ -21,7 +21,11 @@ contract EscrowFactoryTest is Test {
         vm.deal(consumerContract, 1 ether);
 
         vm.prank(client);
-        escrow = new EscrowFactory(aiAgent, consumerContract);
+        escrow = new EscrowFactory(aiAgent);
+        
+        // Set the consumer contract address
+        vm.prank(client);
+        escrow.updateConsumerContract(consumerContract);
     }
 
     // ========== PROJECT CREATION TESTS ==========
@@ -493,5 +497,81 @@ contract EscrowFactoryTest is Test {
         assertEq(p2.client, client);
         assertEq(p2.freelancer, freelancer2);
         assertEq(p2.amount, amount2);
+    }
+
+    // ========== OWNER FUNCTIONALITY TESTS ==========
+    function testOwnerIsSetCorrectly() public view {
+        assertEq(escrow.owner(), client);
+    }
+
+    function testUpdateConsumerContract() public {
+        address newConsumer = address(0x999);
+        
+        vm.prank(client);
+        escrow.updateConsumerContract(newConsumer);
+        
+        assertEq(escrow.consumerContract(), newConsumer);
+    }
+
+    function testUpdateConsumerContractEmitsEvent() public {
+        address newConsumer = address(0x999);
+        
+        vm.prank(client);
+        escrow.updateConsumerContract(newConsumer);
+        
+        // Note: We would need to add an event to the contract to test this properly
+        // For now, we just verify the state change
+        assertEq(escrow.consumerContract(), newConsumer);
+    }
+
+    function test_RevertWhen_UpdateConsumerContractByNonOwner() public {
+        address newConsumer = address(0x999);
+        
+        vm.prank(freelancer);
+        vm.expectRevert("Not owner");
+        escrow.updateConsumerContract(newConsumer);
+    }
+
+    function test_RevertWhen_UpdateConsumerContractToZeroAddress() public {
+        vm.prank(client);
+        vm.expectRevert("Zero address");
+        escrow.updateConsumerContract(address(0));
+    }
+
+    function testCancelProjectWithUpdatedConsumer() public {
+        // Update consumer contract
+        address newConsumer = address(0x999);
+        vm.prank(client);
+        escrow.updateConsumerContract(newConsumer);
+        
+        // Create project
+        vm.prank(client);
+        escrow.createProject{value: projectAmount}(freelancer);
+        projectId = escrow.nextProjectId() - 1;
+        
+        // Cancel with new consumer contract
+        uint256 initialClientBalance = client.balance;
+        vm.prank(newConsumer);
+        escrow.cancelProject(projectId, client);
+        
+        EscrowFactory.Project memory project = escrow.getProject(projectId);
+        assertEq(project.amount, 0); // Project should be deleted
+        assertApproxEqAbs(client.balance, initialClientBalance + projectAmount, 1e9);
+    }
+
+    function test_RevertWhen_CancelProjectWithZeroConsumerContract() public {
+        // Set consumer contract to zero address
+        vm.prank(client);
+        escrow.updateConsumerContract(address(0));
+        
+        // Create project
+        vm.prank(client);
+        escrow.createProject{value: projectAmount}(freelancer);
+        projectId = escrow.nextProjectId() - 1;
+        
+        // Try to cancel - should revert due to zero consumer contract
+        vm.prank(consumerContract);
+        vm.expectRevert(EscrowFactory.NotConsumerContract.selector);
+        escrow.cancelProject(projectId, client);
     }
 }

@@ -7,9 +7,9 @@ import "../src/EscrowFactory.sol";
 
 contract DeployConsumer is Script {
     function run() external {
-        address escrowFactoryAddress = 0x1234567890123456789012345678901234567890; // Replace with actual consumer contract address
+        address escrowFactoryAddress = 0xDe8080f7D36C42aE2FfDd60b65a52D49872A960c;
         
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         Consumer consumer = new Consumer(escrowFactoryAddress);
         

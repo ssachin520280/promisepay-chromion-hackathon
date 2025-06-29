@@ -3,10 +3,10 @@ pragma solidity ^0.8.20;
 
 import "../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
-// TODO: Add a function to update the consumer address which could only be called by the person who owns the contract
 contract EscrowFactory is ReentrancyGuard {
     address public immutable aiAgent;
-    address public immutable consumerContract;
+    address public consumerContract;
+    address public owner;
 
     enum ProjectStatus {
         Pending,    // Contract created, waiting for freelancer to accept
@@ -47,9 +47,9 @@ contract EscrowFactory is ReentrancyGuard {
     error RefundFailed();
     error UnauthorizedCancellation();
 
-    constructor(address _aiAgent, address _consumerContract) {
+    constructor(address _aiAgent) {
         aiAgent = _aiAgent;
-        consumerContract = _consumerContract;
+        owner = msg.sender;
     }
 
     modifier onlyClient(uint256 projectId) {
@@ -74,9 +74,17 @@ contract EscrowFactory is ReentrancyGuard {
     }
 
     modifier onlyConsumerContract() {
+        if (consumerContract == address(0)) {
+            revert NotConsumerContract();
+        }
         if (msg.sender != consumerContract) {
             revert NotConsumerContract();
         }
+        _;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
         _;
     }
 
@@ -192,5 +200,10 @@ contract EscrowFactory is ReentrancyGuard {
     // Get project status
     function getProjectStatus(uint256 projectId) external view returns (ProjectStatus) {
         return projects[projectId].status;
+    }
+
+    function updateConsumerContract(address newConsumer) external onlyOwner {
+        require(newConsumer != address(0), "Zero address");
+        consumerContract = newConsumer;
     }
 }
