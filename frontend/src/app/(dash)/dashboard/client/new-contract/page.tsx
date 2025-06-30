@@ -308,7 +308,7 @@ export default function NewContractPage() {
             });
 
             form.reset();
-            router.push("/dashboard/client");
+            router.push("/dashboard/client/contracts");
         } catch (error) {
             console.error("Error creating contract:", error);
             toast({
@@ -509,7 +509,7 @@ export default function NewContractPage() {
                                     <Button 
                                         type="button" 
                                         variant="outline" 
-                                        onClick={() => router.push("/dashboard/client")}
+                                        onClick={() => router.push("/dashboard/client/contracts")}
                                     >
                                         Cancel
                                     </Button>

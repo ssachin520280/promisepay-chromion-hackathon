@@ -10,7 +10,7 @@ interface AppSidebarProps {
 // Define role-based menu items
 const navItems = {
     client: [
-        { title: "Dashboard", url: "/dashboard/client", icon: Home },
+        // { title: "Dashboard", url: "/dashboard/client", icon: Home },
         { title: "New Contract", url: "/dashboard/client/new-contract", icon: FilePlus2 },
         { title: "My Contracts", url: "/dashboard/client/contracts", icon: MailCheckIcon },
         { title: "Messages", url: "/dashboard/client/messages", icon: MessageSquare },
@@ -18,7 +18,7 @@ const navItems = {
         { title: "Settings", url: "/dashboard/client/settings", icon: Settings },
     ],
     freelancer: [
-        { title: "Dashboard", url: "/dashboard/freelancer", icon: Home },
+        // { title: "Dashboard", url: "/dashboard/freelancer", icon: Home },
         { title: "My Contracts", url: "/dashboard/freelancer/contracts", icon: FileCheck2 },
         { title: "Messages", url: "/dashboard/freelancer/messages", icon: MessageSquare },
         { title: "Ratings", url: "/dashboard/freelancer/ratings", icon: Star },

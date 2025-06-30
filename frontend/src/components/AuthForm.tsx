@@ -85,7 +85,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 const role = userData.role;
 
                 toast.success("Signed in with Google!");
-                router.push(role ? `/dashboard/${role}` : "/sign-up/role-setup");
+                router.push(role ? `/dashboard/${role}/contracts` : "/sign-up/role-setup");
             }
         } catch (error) {
             console.error(error);
@@ -153,7 +153,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     const role = userData.role;
 
                     toast.success("Logged in! Redirecting to dashboard.")
-                    router.push(role ? `/dashboard/${role}` : "/sign-up/role-setup");
+                    router.push(role ? `/dashboard/${role}/contracts` : "/sign-up/role-setup");
                 } else {
                     toast.success("Logged in! Please select your role.")
                     router.push("/sign-up/role-setup");
