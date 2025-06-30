@@ -19,7 +19,7 @@ import { Contract } from "../../../../../../../types/contracts"
 import { doc, setDoc } from "firebase/firestore"
 import { db } from "../../../../../../../firebase/client"
 
-const ESCROW_FACTORY_ADDRESS = "0xDbb7ca1bdd292D1AEb0b125BD69fd1565A0FEe5f";
+const ESCROW_FACTORY_ADDRESS = "0xde8080f7d36c42ae2ffdd60b65a52d49872a960c";
 
 export default function ClientContractDetailsPage() {
     const router = useRouter()
@@ -151,7 +151,7 @@ export default function ClientContractDetailsPage() {
                     contractRef,
                     {
                         clientApproved: true,
-                        blockchainHash: receipt.transactionHash,
+                        blockchainHash: receipt.hash,
                     },
                     { merge: true }
                 );
@@ -202,20 +202,9 @@ export default function ClientContractDetailsPage() {
                 ESCROW_FACTORY_ADDRESS,
                 EscrowFactoryABI.abi,
                 signer
-            );
+            )
 
-            // First approve if not already approved
-            try {
-                const approveTx = await escrowFactory.approveByClient(contract.projectId);
-                await approveTx.wait();
-            } catch (err: any) {
-                // If already approved, ignore error
-                if (!err?.message?.includes("already approved")) {
-                    throw err;
-                }
-            }
-
-            // Then release funds
+            // Release funds
             const releaseTx = await escrowFactory.releaseFunds(contract.projectId);
             const receipt = await releaseTx.wait();
 
@@ -227,7 +216,7 @@ export default function ClientContractDetailsPage() {
                     {
                         status: "completed",
                         completedAt: Timestamp.fromDate(new Date()),
-                        blockchainHash: receipt.transactionHash,
+                        blockchainHash: receipt.hash,
                     },
                     { merge: true }
                 );
@@ -290,7 +279,7 @@ export default function ClientContractDetailsPage() {
                     contractRef,
                     {
                         status: "cancelled",
-                        blockchainHash: receipt.transactionHash,
+                        blockchainHash: receipt.hash,
                     },
                     { merge: true }
                 );

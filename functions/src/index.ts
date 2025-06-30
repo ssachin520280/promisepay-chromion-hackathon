@@ -241,7 +241,7 @@ export const shouldReleaseFunds = onRequest({ secrets: ["GEMINI_API_KEY"] }, asy
   }
 });
 
-// const ESCROW_FACTORY_CONTRACT_ADDRESS = "0xDbb7ca1bdd292D1AEb0b125BD69fd1565A0FEe5f";
+// const ESCROW_FACTORY_CONTRACT_ADDRESS = "0xde8080f7d36c42ae2ffdd60b65a52d49872a960c";
 
 export const aiApproveOnSubmission = functions.firestore
   .onDocumentUpdated(
@@ -339,7 +339,7 @@ export const aiApproveOnSubmission = functions.firestore
           const provider = new ethers.JsonRpcProvider(PROVIDER_URL.value());
           const wallet = new ethers.Wallet(PRIVATE_KEY.value(), provider);
           const escrowFactory = new ethers.Contract(
-            "0xDbb7ca1bdd292D1AEb0b125BD69fd1565A0FEe5f",
+            "0xde8080f7d36c42ae2ffdd60b65a52d49872a960c",
             [
               "function approveByAI(uint256 projectId) external"
             ],

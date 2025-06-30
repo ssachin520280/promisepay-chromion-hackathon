@@ -21,7 +21,7 @@ import { Check } from "lucide-react";
 import { ethers } from "ethers";
 import EscrowFactoryABI from "@/abi/EscrowFactory.json";
 
-const ESCROW_FACTORY_ADDRESS = "0xDbb7ca1bdd292D1AEb0b125BD69fd1565A0FEe5f";
+const ESCROW_FACTORY_ADDRESS = "0xde8080f7d36c42ae2ffdd60b65a52d49872a960c";
 
 type ReleasePaymentDialogProps = {
   open: boolean;

@@ -19,7 +19,7 @@ import { doc, setDoc } from "firebase/firestore"
 import { db } from "../../../../../../../firebase/client"
 import { Contract } from "../../../../../../../types/contracts"
 
-const ESCROW_FACTORY_ADDRESS = "0xDbb7ca1bdd292D1AEb0b125BD69fd1565A0FEe5f";
+const ESCROW_FACTORY_ADDRESS = "0xde8080f7d36c42ae2ffdd60b65a52d49872a960c";
 
 export default function FreelancerContractDetailsPage() {
     const router = useRouter()
@@ -141,19 +141,12 @@ export default function FreelancerContractDetailsPage() {
                 signer
             );
 
-            // TODO: Replace with actual function name when created in escrow contract
-            // const tx = await escrowFactory.acceptProject(contract.projectId);
-            // const receipt = await tx.wait();
-
-            // Placeholder: Simulate blockchain transaction
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate transaction time
-            const mockReceipt = {
-                status: 1,
-                transactionHash: `0x${Math.random().toString(16).substring(2, 30)}`
-            };
+            const tx = await escrowFactory.acceptContract(contract.projectId);
+            const receipt = await tx.wait();
 
             // Only update Firestore after confirming blockchain transaction success
-            if (mockReceipt.status === 1) {
+            if (receipt.status === 1) {
+                console.log(receipt);
                 const acceptedAt = new Date();
                 const contractRef = doc(db, "contracts", contract.id);
                 await setDoc(
@@ -161,7 +154,7 @@ export default function FreelancerContractDetailsPage() {
                     {
                         status: "active",
                         acceptedAt: Timestamp.fromDate(acceptedAt),
-                        blockchainHash: mockReceipt.transactionHash,
+                        blockchainHash: receipt.hash,
                     },
                     { merge: true }
                 );
@@ -214,19 +207,12 @@ export default function FreelancerContractDetailsPage() {
                 signer
             );
 
-            // TODO: Replace with actual function name when created in escrow contract
-            // const tx = await escrowFactory.submitWork(contract.projectId);
-            // const receipt = await tx.wait();
-
-            // Placeholder: Simulate blockchain transaction
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate transaction time
-            const mockReceipt = {
-                status: 1,
-                transactionHash: `0x${Math.random().toString(16).substring(2, 30)}`
-            };
+            const tx = await escrowFactory.submitWork(contract.projectId);
+            const receipt = await tx.wait();
 
             // Only update Firestore after confirming blockchain transaction success
-            if (mockReceipt.status === 1) {
+            if (receipt.status === 1) {
+                console.log(receipt);
                 const submittedAt = new Date();
                 const contractRef = doc(db, "contracts", contract.id);
                 await setDoc(
@@ -234,7 +220,7 @@ export default function FreelancerContractDetailsPage() {
                     {
                         status: "submitted",
                         submittedAt: Timestamp.fromDate(submittedAt),
-                        blockchainHash: mockReceipt.transactionHash,
+                        blockchainHash: receipt.hash,
                     },
                     { merge: true }
                 );

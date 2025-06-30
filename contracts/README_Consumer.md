@@ -92,15 +92,6 @@ if (timeDiff >= minTimeRequired) {
 2. Set up a Chainlink Functions subscription
 3. Fund the subscription with LINK tokens
 
-### Environment Variables
-
-Create a `.env` file with:
-
-```env
-PRIVATE_KEY=your_private_key
-ESCROW_FACTORY_ADDRESS=deployed_escrow_factory_address
-```
-
 ### Deployment Command
 
 ```bash
