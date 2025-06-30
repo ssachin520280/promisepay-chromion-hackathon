@@ -12,6 +12,7 @@ import { getContractById } from "@/lib/contracts"
 import { toast } from "@/hooks/use-toast"
 import { ethers } from "ethers"
 import EscrowFactoryABI from "@/abi/EscrowFactory.json"
+import ConsumerABI from "@/abi/Consumer.json"
 import { Timestamp } from "firebase/firestore"
 import { auth } from "../../../../../../../firebase/client"
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth"
@@ -20,6 +21,8 @@ import { doc, setDoc } from "firebase/firestore"
 import { db } from "../../../../../../../firebase/client"
 
 const ESCROW_FACTORY_ADDRESS = "0xde8080f7d36c42ae2ffdd60b65a52d49872a960c";
+const CONSUMER_ADDRESS = "0x8807bda84db369a3270820f978337f5f1792dd5a";
+const SUBSCRIPTION_ID = 5200;
 
 export default function ClientContractDetailsPage() {
     const router = useRouter()
@@ -263,13 +266,21 @@ export default function ClientContractDetailsPage() {
 
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
-            const escrowFactory = new ethers.Contract(
-                ESCROW_FACTORY_ADDRESS,
-                EscrowFactoryABI.abi,
+            const consumer = new ethers.Contract(
+                CONSUMER_ADDRESS,
+                ConsumerABI.abi,
                 signer
             );
 
-            const tx = await escrowFactory.cancelProject(contract.projectId);
+            // Get the signer's address
+            const signerAddress = await signer.getAddress();
+
+            // Request cancellation through the Consumer contract
+            const tx = await consumer.requestCancellation(
+                contract.projectId,
+                signerAddress,
+                SUBSCRIPTION_ID
+            );
             const receipt = await tx.wait();
 
             // Only update Firestore after confirming blockchain transaction success
@@ -285,8 +296,8 @@ export default function ClientContractDetailsPage() {
                 );
 
                 toast({
-                    title: "Contract Cancelled",
-                    description: "The contract has been cancelled successfully.",
+                    title: "Cancellation Requested",
+                    description: "Cancellation request has been submitted. It will be processed by Chainlink Functions.",
                 });
 
                 // Refresh contract data
@@ -453,6 +464,42 @@ export default function ClientContractDetailsPage() {
                                                 </p>
                                             </div>
                                         )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {canCancelContract && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <AlertTriangle className="w-5 h-5 text-red-500" />
+                                        Cancellation Process
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Information about the cancellation process
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                            <p className="text-sm text-blue-800">
+                                                <strong>Note:</strong> Cancellation requests are processed through Chainlink Functions to validate time constraints. 
+                                                The request will be automatically approved if the project has been active for at least 2 minutes.
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-medium">Current Status:</span>
+                                            <Badge className={getStatusBadge(contract.status)}>
+                                                {contract.status}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-medium">Created Date:</span>
+                                            <span className="text-sm text-muted-foreground">
+                                                {formatDate(contract.createdAt)}
+                                            </span>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
