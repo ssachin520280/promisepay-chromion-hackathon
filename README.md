@@ -81,7 +81,7 @@ cd functions && npm install && npm run deploy
 
 ## 🌐 Live Demo
 
-[promise-pay.vercel.app]
+[promisepay.vercel.app](promisepay.vercel.app)
 
 ## 📋 Contract Addresses (Sepolia Testnet)
 
